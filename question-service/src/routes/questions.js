@@ -19,6 +19,8 @@ router.post('/', validateCreateQuestion, createQuestion);
 router.get('/', listQuestions);
 router.get('/random', getRandomQuestion);
 router.get('/:id', getQuestionById);
+router.put('/:id', validateUpdateQuestion, updateQuestion);
+router.delete('/:id', deleteQuestion);
 
 
 export default router;

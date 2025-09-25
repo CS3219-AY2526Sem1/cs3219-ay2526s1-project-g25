@@ -112,4 +112,65 @@ export async function getRandomQuestion(req, res) {
   }
 }
 
+/**
+ * Update question (admin).
+ * ID must remain unchanged (DB primary key).
+ */
+export async function updateQuestion(req, res) {
+  try {
+    const { id } = req.params;
+    const updates = {};
+    const allowed = ['title','description','difficulty','topic','test_cases'];
+    allowed.forEach(k => {
+      if (req.body[k] !== undefined) updates[k] = req.body[k];
+    });
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No updatable fields provided' });
+    }
+
+    // Ensure ID not present in updates (client shouldn't change it)
+    if (req.body.id && req.body.id !== id) {
+      return res.status(400).json({ error: 'Cannot change question id' });
+    }
+
+    const { data, error } = await supabase
+    .from('questions')
+    .update(updates)  // removed updated_at
+    .eq('id', id)
+    .select()
+    .single();
+
+    if (error) {
+      console.error('Supabase update error:', error);
+      return res.status(500).json({ error: 'Database error', details: error.message });
+    }
+    if (!data) return res.status(404).json({ error: 'Question not found' });
+
+    return res.json(data);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Delete question (admin). Permanently purge per F9.4.2
+ */
+export async function deleteQuestion(req, res) {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase.from('questions').delete().eq('id', id);
+    if (error) {
+      console.error('Supabase delete error:', error);
+      return res.status(500).json({ error: 'Database error', details: error.message });
+    }
+
+    // successful deletion returns 204 No Content
+    return res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
 
