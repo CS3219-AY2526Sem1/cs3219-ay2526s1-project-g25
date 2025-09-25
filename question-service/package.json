@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "npx cross-env NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test jest --runInBand"
+    "test": "npx cross-env NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test jest --runInBand",
+    "coverage": "npm test -- --coverage"
   },
   "author": "",
   "license": "ISC",
