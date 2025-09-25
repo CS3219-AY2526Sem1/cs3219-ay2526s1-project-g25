@@ -48,28 +48,28 @@ export class MatchQueue {
   /**
    * Add user to queues for each selected topic on their chosen difficulty.
    */
-  async join({ userId, selectedTopics, selectedDifficulty }) {
+    async join({ userId, selectedTopics, selectedDifficulty }) {
+    // Prevent re-enqueue if user already matched
+    const existing = this.waitingMap.get(userId);
+    if (existing && existing.status === 'MATCHED') {
+        return { status: 'already_matched', match: this.matches.get(existing.matchId) };
+    }
+
     const enqueueAt = nowMs();
     const waiter = { userId, selectedTopics, selectedDifficulty, enqueueAt, status: 'WAITING' };
     this.waitingMap.set(userId, waiter);
 
     for (const t of selectedTopics) {
-      this._ensureTopic(t);
-      this.queues.get(t)[selectedDifficulty].push(waiter);
+        this._ensureTopic(t);
+        this.queues.get(t)[selectedDifficulty].push(waiter);
     }
 
-    // Try immediate match
     const result = await this._tryMatchForUser(waiter);
-    if (result?.status === 'matched') {
-      return result;
+    if (result?.status === 'matched') return result;
+
+    return { status: 'queued', userId, expiresAt: enqueueAt + this.matchTimeoutMs };
     }
 
-    return {
-      status: 'queued',
-      userId,
-      expiresAt: enqueueAt + this.matchTimeoutMs
-    };
-  }
 
   leave(userId) {
     const waiter = this.waitingMap.get(userId);
@@ -137,53 +137,68 @@ export class MatchQueue {
     return null;
   }
 
-  async _finalizePair({ a, b, topic, difficulty }) {
-    console.log(`[queue] Finalizing match between ${a.userId} and ${b.userId} on ${topic}/${difficulty}`);
+    async _finalizePair({ a, b, topic, difficulty }) {
+    const matchId = genId();
+    const createdAt = nowMs();
+    const handshakeExpiresAt = createdAt + this.handshakeTtlMs;
+    
 
     a.status = 'MATCHED';
     b.status = 'MATCHED';
     this._removeFromAllQueues(a);
     this._removeFromAllQueues(b);
 
-    const matchId = genId();
-    const createdAt = nowMs();
-    const handshakeExpiresAt = createdAt + this.handshakeTtlMs;
-    const match = { matchId, userA: a.userId, userB: b.userId, topic, difficulty, createdAt, handshakeExpiresAt };
+    const match = {
+        matchId,
+        userA: a.userId,
+        userB: b.userId,
+        topic,
+        difficulty,
+        createdAt,
+        handshakeExpiresAt,
+        question: null,
+        handshaked: false   // 🔑 NEW FLAG
+    };
 
     try {
-      const question = await fetchRandomQuestion({ topic, difficulty });
-      match.question = question;
+        const question = await fetchRandomQuestion({ topic, difficulty });
+        match.question = question;
     } catch (err) {
-      console.error(`[queue] Question fetch failed: ${err.message}`);
-      a.status = 'WAITING';
-      b.status = 'WAITING';
-      this._requeue(a);
-      this._requeue(b);
-      return { status: 'queued', reason: 'no_question_available' };
+        a.status = 'WAITING';
+        b.status = 'WAITING';
+        this._requeue(a);
+        this._requeue(b);
+        return { status: 'queued', reason: 'no_question_available' };
     }
 
     this.matches.set(matchId, match);
     a.matchId = matchId;
     b.matchId = matchId;
+    match.handshaked = true; 
 
-    // persist updates back into waitingMap
     this.waitingMap.set(a.userId, a);
     this.waitingMap.set(b.userId, b);
 
     return { status: 'matched', match };
-  }
-
-  _removeFromAllQueues(waiter) {
-    for (const topic of waiter.selectedTopics) {
-      const topicQueues = this.queues.get(topic);
-      if (!topicQueues) continue;
-      for (const d of DIFFICULTIES) {
-        const lane = topicQueues[d];
-        const idx = lane.findIndex(w => w.userId === waiter.userId);
-        if (idx >= 0) lane.splice(idx, 1);
-      }
     }
-  }
+
+
+
+    _removeFromAllQueues(waiter) {
+    for (const topic of waiter.selectedTopics) {
+        const topicQueues = this.queues.get(topic);
+        if (!topicQueues) continue;
+        for (const d of DIFFICULTIES) {
+        const lane = topicQueues[d];
+        for (let i = lane.length - 1; i >= 0; i--) {
+            if (lane[i].userId === waiter.userId) {
+            lane.splice(i, 1);
+            }
+        }
+        }
+    }
+    }
+
 
   _requeue(waiter) {
     waiter.enqueueAt = nowMs();
@@ -216,23 +231,31 @@ export class MatchQueue {
       }
     }, 1000).unref();
 
-    // handshake TTL
+    // handshake TTL reaper
     setInterval(() => {
-      const now = nowMs();
-      for (const [matchId, m] of this.matches) {
-        if (m.handshakeExpiresAt && now > m.handshakeExpiresAt && !m.closed) {
-          const a = this.waitingMap.get(m.userA);
-          const b = this.waitingMap.get(m.userB);
-          if (a && a.status === 'MATCHED') { a.status = 'WAITING'; this._requeue(a); }
-          if (b && b.status === 'MATCHED') { b.status = 'WAITING'; this._requeue(b); }
-          m.closed = true;
+    const now = nowMs();
+    for (const [matchId, m] of this.matches) {
+        // 🔑 Skip TTL entirely for confirmed matches
+        if (m.handshaked === true) continue;
+
+        if (!m.closed && !m.handshaked && m.handshakeExpiresAt && now > m.handshakeExpiresAt) {
+        console.log(`[handshakeTTL] Expired match ${matchId}, requeueing users`);
+        const a = this.waitingMap.get(m.userA);
+        const b = this.waitingMap.get(m.userB);
+        if (a && a.status === 'MATCHED') { a.status = 'WAITING'; this._requeue(a); }
+        if (b && b.status === 'MATCHED') { b.status = 'WAITING'; this._requeue(b); }
+        m.closed = true;
         }
-      }
+    }
     }, 1000).unref();
+
   }
 
   getStatus(userId) {
     const w = this.waitingMap.get(userId);
+    console.log(`[getStatus] user=${userId}, status=${w?.status}, matchId=${w?.matchId}`);
+
+
     if (!w) return { status: 'NOT_FOUND' };
     if (w.status === 'WAITING') {
       return {
