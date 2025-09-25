@@ -14,10 +14,24 @@ $> cd question-service
 $> npm install
 ```
 
-Next, set up postgresql.
+Since we are hosting the PostgreSQL database on Supabase, we need to manage the environment variables for connecting to the Supabase instance:
+
+```bash
+$> cp .env.example .env
+$> vim .env
+```
+
+Fill in the respective fields.
+
+<details>
+<summary>Set up on a local PostgreSQL Server</summary>
+
+Set up postgresql with:
+
 ```bash
 $> sudo apt install postgresql
 ```
+
 Next, sign in as Postgres and create a user and then the question service database:
 ```sql
 CREATE DATABASE question_service;
@@ -30,5 +44,10 @@ Finally, load the initialisation script.
 ```sql
 \i db/init.sql
 ```
+</details>
+
+> [!NOTE]
+> Currently, Supabase Row-Level Security is set to restrict operations other than retrieval for all users. This will be updated soon, after more API functionality is developed.
 
 More coming soon!
+
