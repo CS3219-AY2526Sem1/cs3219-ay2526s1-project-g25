@@ -99,7 +99,7 @@ export class MatchQueue {
       }
     }
 
-    // 2) Fallback
+    // 2) Fallback matching
     for (const topic of waiter.selectedTopics) {
       const q = this.queues.get(topic);
       if (!q) continue;
@@ -157,7 +157,8 @@ export class MatchQueue {
         createdAt,
         handshakeExpiresAt,
         question: null,
-        handshaked: false   // 🔑 NEW FLAG
+        handshaked: false,   //NEW FLAG to distinguish matches that have been successful (not disconnected) and handshake has been done
+        closed: false
     };
 
     try {
@@ -219,7 +220,7 @@ export class MatchQueue {
       }
     }, this.queueRecalcMs).unref();
 
-    // timeout reaper
+    // timeout
     setInterval(() => {
       const now = nowMs();
       for (const [userId, waiter] of this.waitingMap) {
@@ -231,11 +232,11 @@ export class MatchQueue {
       }
     }, 1000).unref();
 
-    // handshake TTL reaper
+    // handshake TTL
     setInterval(() => {
     const now = nowMs();
     for (const [matchId, m] of this.matches) {
-        // 🔑 Skip TTL entirely for confirmed matches
+        //Skip TTL entirely for confirmed matches
         if (m.handshaked === true) continue;
 
         if (!m.closed && !m.handshaked && m.handshakeExpiresAt && now > m.handshakeExpiresAt) {
@@ -278,30 +279,42 @@ export class MatchQueue {
     return { status: w.status };
   }
 
-  handleDisconnect({ matchId, remainingUserId, action }) {
+    handleDisconnect({ matchId, remainingUserId, action }) {
     const match = this.matches.get(matchId);
-    if (!match || match.closed) {
-      return { ok: false, error: 'MATCH_NOT_ACTIVE' };
+    if (!match) {
+        return { ok: false, error: 'MATCH_NOT_ACTIVE' };
+    }
+    if (match.closed) {
+        return { ok: false, error: 'MATCH_ALREADY_CLOSED' };
     }
     if (![match.userA, match.userB].includes(remainingUserId)) {
-      return { ok: false, error: 'NOT_IN_MATCH' };
+        return { ok: false, error: 'NOT_IN_MATCH' };
     }
 
+    // we can close the match now
     match.closed = true;
+
+    const otherUserId = match.userA === remainingUserId ? match.userB : match.userA;
+    const otherWaiter = this.waitingMap.get(otherUserId);
+    if (otherWaiter) {
+        otherWaiter.status = 'DISCONNECTED';
+        this.waitingMap.set(otherUserId, otherWaiter);
+  }
 
     const remWaiter = this.waitingMap.get(remainingUserId);
     if (remWaiter) {
-      if (action === 'solo') {
+        if (action === 'solo') {
         remWaiter.status = 'SOLO';
         return { ok: true, mode: 'SOLO', question: match.question };
-      }
-      if (action === 'requeue') {
+        }
+        if (action === 'requeue') {
         remWaiter.status = 'WAITING';
         this._requeue(remWaiter);
         return { ok: true, mode: 'REQUEUED', expiresAt: remWaiter.enqueueAt + this.matchTimeoutMs };
-      }
-      return { ok: false, error: 'INVALID_ACTION' };
+        }
+        return { ok: false, error: 'INVALID_ACTION' };
     }
     return { ok: false, error: 'USER_NOT_FOUND' };
-  }
+}
+
 }
