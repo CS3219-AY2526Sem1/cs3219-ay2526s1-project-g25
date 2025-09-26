@@ -12,7 +12,8 @@ app.use(express.json({ limit: '1mb' }));
 const queue = new MatchQueue({
   matchTimeoutMs: Number(process.env.MATCH_TIMEOUT_MS || 120000),
   queueRecalcMs: Number(process.env.QUEUE_RECALC_MS || 5000),
-  handshakeTtlMs: Number(process.env.HANDSHAKE_TTL_MS || 15000)
+  handshakeTtlMs: Number(process.env.HANDSHAKE_TTL_MS || 15000),
+  fallbackThresholdMs: Number(process.env.FALLBACK_THRESHOLD_MS || 60000)
 });
 initController(queue);
 
