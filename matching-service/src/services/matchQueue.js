@@ -266,6 +266,30 @@ export class MatchQueue {
       }
     }, this.queueRecalcMs).unref();
 
+    // fallback matching tick - check for users who can now be matched via fallback
+    setInterval(async () => {
+      const now = nowMs();
+      const eligibleUsers = [];
+      
+      // Find users who have been waiting long enough for fallback
+      for (const [userId, waiter] of this.waitingMap) {
+        if (waiter.status !== 'WAITING') continue;
+        if (now - waiter.enqueueAt >= this.fallbackThresholdMs) {
+          eligibleUsers.push(waiter);
+        }
+      }
+      
+      // Try to match eligible users with each other
+      for (const waiter of eligibleUsers) {
+        if (waiter.status !== 'WAITING') continue; // Skip if already matched
+        
+        const result = await this._tryMatchForUser(waiter);
+        if (result?.status === 'matched') {
+          console.log(`[fallback] Matched ${waiter.userId} via background fallback`);
+        }
+      }
+    }, 5000).unref(); // Check every 5 seconds
+
     // timeout
     setInterval(() => {
       const now = nowMs();
