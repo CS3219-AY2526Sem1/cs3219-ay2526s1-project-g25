@@ -6,7 +6,8 @@ import {
   listQuestions,
   getRandomQuestion,
   updateQuestion,
-  deleteQuestion
+  deleteQuestion,
+  getImageSignature
 } from '../controllers/questionsController.js';
 
 import { validateCreateQuestion, validateUpdateQuestion } from '../middleware/validateQuestion.js';
@@ -18,6 +19,9 @@ const router = express.Router();
 router.post('/', validateCreateQuestion, createQuestion);
 router.get('/', listQuestions);
 router.get('/random', getRandomQuestion);
+
+router.get('/signature', getImageSignature);
+
 router.get('/:id', getQuestionById);
 router.put('/:id', validateUpdateQuestion, updateQuestion);
 router.delete('/:id', deleteQuestion);

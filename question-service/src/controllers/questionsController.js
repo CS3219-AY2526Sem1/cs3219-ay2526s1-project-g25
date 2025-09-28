@@ -1,6 +1,6 @@
 // src/controllers/questionsController.js
 import { supabase } from '../services/supabaseClient.js';
-import { v4 as uuidv4 } from 'uuid';
+import { cloudinaryClient } from "../services/cloudinaryClient.js";
 
 /**
  * Create a question (assuming admin is doing it right now).
@@ -174,3 +174,25 @@ export async function deleteQuestion(req, res) {
   }
 }
 
+// When user tries to upload an image for a question, provide a valid signature signed by
+// our Cloudinary API Key. This will let Cloudinary authenticate the client when uploading the image.
+export async function getImageSignature(req, res) {
+  try {
+    const timestamp = (new Date()).getTime();
+    const paramsToSign = {
+      timestamp
+    }
+
+    const signature = await cloudinaryClient.utils.api_sign_request(paramsToSign, process.env.CLOUDINARY_API_SECRET);
+
+    res.json({
+      timestamp,
+      signature,
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+}
