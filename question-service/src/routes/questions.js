@@ -20,6 +20,7 @@ router.post('/', validateCreateQuestion, createQuestion);
 router.get('/', listQuestions);
 router.get('/random', getRandomQuestion);
 
+// Has to be before /:id or it will get interpreted as an ID.
 router.get('/signature', getImageSignature);
 
 router.get('/:id', getQuestionById);
