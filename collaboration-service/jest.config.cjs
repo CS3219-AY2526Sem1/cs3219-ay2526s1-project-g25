@@ -5,5 +5,8 @@ module.exports = {
     roots: ['<rootDir>/src/__tests__'],
     // No extensionsToTreatAsEsm needed since "type":"module" is set
     transform: {}, // keep empty to avoid Babel
+    collectCoverage: true,
+    collectCoverageFrom: ['src/**/*.js'],
+    coveragePathIgnorePatterns: ['/node_modules/']
 };
 
