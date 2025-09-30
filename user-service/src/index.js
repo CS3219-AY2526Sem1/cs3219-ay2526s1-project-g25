@@ -17,4 +17,9 @@ app.use('/users', userRoutes)
 
 app.get('/', (req, res) => res.json({ service: 'user-service', ok: true }))
 
-app.listen(PORT, () => console.log(`User service running on port ${PORT}`))
+// Only listen if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => console.log(`User service running on port ${PORT}`))
+}
+
+export default app
