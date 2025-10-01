@@ -1,5 +1,6 @@
 import { documents, presence, wsRooms } from '../repos/memoryRepo.js';
 import { getOrCreateDoc, applyOp } from '../services/documentService.js';
+import { touchPresence } from "../services/presenceService.js";
 import { z } from 'zod';
 
 /**
@@ -84,7 +85,7 @@ export function initGateway(wss) {
 
         if (msg.type === 'cursor:update') {
           const p = presence.get(sessionId) ?? new Map();
-          p.set(userId, { cursor: msg.cursor, lastSeen: Date.now() });
+          touchPresence(p, userId, msg.cursor);
           presence.set(sessionId, p);
 
           const payload = { type: 'cursor:update', userId, cursor: msg.cursor };
