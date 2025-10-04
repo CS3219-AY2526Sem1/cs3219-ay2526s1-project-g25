@@ -1,7 +1,8 @@
-
 import request from 'supertest';
 import { createServer } from 'http';
 import app from '../../app.js';
+import { WebSocket, WebSocketServer } from 'ws';
+import { initGateway } from '../../ws/gateway.js';
 
 describe('sessions REST', () => {
   test('create + get roundtrip', async () => {
@@ -28,20 +29,30 @@ describe('sessions REST', () => {
 
 describe("REST and Websocket", () => {
     let server;
+    let wss;
+
     let baseURL;
 
     beforeAll((done) => {
         server = createServer(app);
+        wss = new WebSocketServer({ server, path: '/ws' });
+        initGateway(wss);
+
         server.listen(0, () => {
             const { port } = server.address();
             baseURL = `http://localhost:${port}`;
             done();
         })
+
     })
 
     afterAll((done) => {
-        server.close(done);
-    })
+        // close any open websocket clients attached.
+        wss.clients.forEach((client) => { client.terminate(); });
+        wss.close(() => {
+            server.close(done);
+        });
+    });
 
     test("pairs two users and syncs updates", async () => {
         const sessionCreate = await request(baseURL)
@@ -66,5 +77,94 @@ describe("REST and Websocket", () => {
             .post(`/sessions/${sessionId}/join`)
             .send({ userId: 'bob' })
             .expect(200);
-    })
+
+        // Open websockets for both clients
+        const wsA = new WebSocket(`${baseURL.replace("http", "ws")}/ws`, {
+            headers: {
+                "x-session-id": sessionId,
+                "x-user-id": "alice"
+            }
+        });
+
+        await new Promise((resolve) => {
+            wsA.on("open", () => {
+                resolve(wsA);
+            })
+        })
+
+        const wsB = new WebSocket(`${baseURL.replace("http", "ws")}/ws`, {
+            headers: {
+                "x-session-id": sessionId,
+                "x-user-id": "bob"
+            }
+        });
+
+        await new Promise((resolve) => {
+            wsB.on("open", () => {
+                resolve(wsB);
+            })
+        })
+
+        const messagesA = [];
+        const messagesB = [];
+
+        wsA.on("message", (msg) => {
+            messagesA.push(JSON.parse(msg));
+        })
+
+        wsB.on("message", (msg) => {
+            messagesB.push(JSON.parse(msg));
+        })
+
+        // Wait for connection to be established
+        wsA.send(JSON.stringify({ type: 'doc:op', op: { type: 'insert', index: 0, text: "Hello!", version: 0 } }));
+        await new Promise((r) => setTimeout(r, 200));
+
+        expect(messagesA).toHaveLength(1);
+        expect(messagesB).toHaveLength(1);
+        expect(messagesA[0].type).toEqual('doc:applied');
+        expect(messagesA[0].document.text).toEqual('Hello!');
+        expect(messagesA[0].document.version).toEqual(1);
+        expect(messagesA[0].by).toEqual('alice');
+        expect(messagesB[0].type).toEqual('doc:applied');
+        expect(messagesB[0].document.text).toEqual('Hello!');
+        expect(messagesB[0].document.version).toEqual(1);
+        expect(messagesB[0].by).toEqual('alice');
+
+        wsB.send(JSON.stringify({ type: 'doc:op', op: { type: 'delete', index: 0, length: 6, version: 1 } }));
+        await new Promise((r) => setTimeout(r, 200));
+
+        expect(messagesA).toHaveLength(2);
+        expect(messagesB).toHaveLength(2);
+        expect(messagesA[1].type).toEqual('doc:applied');
+        expect(messagesA[1].document.text).toEqual('');
+        expect(messagesA[1].document.version).toEqual(2);
+        expect(messagesA[1].by).toEqual('bob');
+        expect(messagesB[1].type).toEqual('doc:applied');
+        expect(messagesB[1].document.text).toEqual('');
+        expect(messagesB[1].document.version).toEqual(2);
+        expect(messagesB[1].by).toEqual('bob');
+
+        wsA.send(JSON.stringify({ type: 'doc:op', op: { type: 'insert', index: 0, text: "Hello!", version: 0 } }));
+        await new Promise((r) => setTimeout(r, 200));
+
+        expect(messagesA).toHaveLength(3);
+        expect(messagesA[2].type).toEqual('doc:resync');
+        expect(messagesA[2].document.text).toEqual('');
+
+        wsA.send(JSON.stringify({ type: 'doc:op', op: { type: 'insert', index: 0, text: "Hello!", version: 2 } }));
+        await new Promise((r) => setTimeout(r, 200));
+
+        wsB.send(JSON.stringify({ type: "cursor:update", cursor: { line: 0, col: 3 } }));
+        await new Promise((r) => setTimeout(r, 200));
+
+        expect(messagesA).toHaveLength(5);
+        expect(messagesA[4].type).toEqual('cursor:update');
+        expect(messagesA[4].userId).toEqual('bob');
+        expect(messagesA[4].cursor.line).toEqual(0);
+        expect(messagesA[4].cursor.col).toEqual(3);
+
+        wsA.close();
+        wsB.close();
+    }, 30000)
 })
