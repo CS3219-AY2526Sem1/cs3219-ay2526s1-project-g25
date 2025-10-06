@@ -1,390 +1,167 @@
-// src/services/matchQueue.js
-import { nowMs } from '../utils/clock.js';
-import { genId } from '../utils/id.js';
-import { fetchRandomQuestion } from './questionClient.js';
+import { redisClient } from "./redisClient.js";
+import { nowMs } from "../utils/clock.js";
+import { genId } from "../utils/id.js";
+import { fetchRandomQuestion } from "./questionClient.js";
 
-const DIFFICULTIES = ['easy', 'medium', 'hard'];
+const DIFFICULTIES = ["easy", "medium", "hard"];
 
-/**
- * In-memory structures:
- * - queues: { topic -> { easy:[Waiter], medium:[Waiter], hard:[Waiter] } }
- * - waitingMap: userId -> Waiter (fast lookup & status)
- * - matches: matchId -> Match
- *
- * Waiter = {
- *   userId, selectedTopics:string[], selectedDifficulty:string,
- *   enqueueAt:number(ms), status:'WAITING'|'MATCHED'|'TIMED_OUT'|'SOLO',
- *   matchId?:string
- * }
- *
- * Match = {
- *   matchId, userA, userB, topic, difficulty, createdAt:number(ms),
- *   handshakeExpiresAt:number(ms), question?:object, closed?:boolean
- * }
- */
 export class MatchQueue {
   constructor({
     matchTimeoutMs = 120000,
-    queueRecalcMs = 5000,
     handshakeTtlMs = 15000,
-    fallbackThresholdMs = 60000  // 60 seconds before allowing cross-difficulty matching
+    fallbackThresholdMs = 60000,
+    fallbackCheckMs = 5000, // ⏱ check every 5 s
   } = {}) {
     this.matchTimeoutMs = matchTimeoutMs;
-    this.queueRecalcMs = queueRecalcMs;
     this.handshakeTtlMs = handshakeTtlMs;
     this.fallbackThresholdMs = fallbackThresholdMs;
-
-    this.queues = new Map();     // topic -> { easy:[], medium:[], hard:[] }
-    this.waitingMap = new Map(); // userId -> Waiter
-    this.matches = new Map();    // matchId -> Match
-
-    this._startSchedulers();
+    this.fallbackCheckMs = fallbackCheckMs;
+    this._startFallbackChecker();
   }
 
-  _ensureTopic(topic) {
-    if (!this.queues.has(topic)) {
-      this.queues.set(topic, { easy: [], medium: [], hard: [] });
-    }
-  }
-
-  /**
-   * Add user to queues for each selected topic on their chosen difficulty.
-   */
-    async join({ userId, selectedTopics, selectedDifficulty }) {
-    // Prevent re-enqueue if user already matched
-    const existing = this.waitingMap.get(userId);
-    if (existing && existing.status === 'MATCHED') {
-        return { status: 'already_matched', match: this.matches.get(existing.matchId) };
+  /*───────────────────────────────────────────────
+   *  Add user to queue
+   *───────────────────────────────────────────────*/
+  async join({ userId, selectedTopics, selectedDifficulty }) {
+    const existing = await redisClient.hGetAll(`waiter:${userId}`);
+    if (existing && existing.status && existing.status.toUpperCase() === "MATCHED") {
+      const match = await redisClient.hGetAll(`match:${existing.matchId}`);
+      if (match && Object.keys(match).length) {
+        match.question = JSON.parse(match.question || "{}");
+        return { status: "already_matched", match };
+      }
     }
 
     const enqueueAt = nowMs();
-    const waiter = { userId, selectedTopics, selectedDifficulty, enqueueAt, status: 'WAITING' };
-    this.waitingMap.set(userId, waiter);
+    const waiter = {
+      userId,
+      selectedTopics: JSON.stringify(selectedTopics),
+      selectedDifficulty,
+      enqueueAt: enqueueAt.toString(),
+      status: "WAITING",
+    };
 
-    for (const t of selectedTopics) {
-        this._ensureTopic(t);
-        this.queues.get(t)[selectedDifficulty].push(waiter);
+    await redisClient.hSet(`waiter:${userId}`, waiter);
+    for (const topic of selectedTopics) {
+      await redisClient.zAdd(`queue:${topic}:${selectedDifficulty}`, [
+        { score: enqueueAt, value: userId },
+      ]);
     }
+    await redisClient.expire(`waiter:${userId}`, this.matchTimeoutMs / 1000);
 
     const result = await this._tryMatchForUser(waiter);
-    if (result?.status === 'matched') return result;
-
-    return { status: 'queued', userId, expiresAt: enqueueAt + this.matchTimeoutMs };
-    }
-
-
-  leave(userId) {
-    const waiter = this.waitingMap.get(userId);
-    if (!waiter) return { removed: false };
-    this._removeFromAllQueues(waiter);
-    this.waitingMap.delete(userId);
-    return { removed: true };
+    return result?.status === "matched"
+      ? result
+      : { status: "queued", userId, expiresAt: enqueueAt + this.matchTimeoutMs };
   }
 
-  /**
-   * Main matching logic:
-   * 1) Perfect match: same topic + same difficulty → oldest first.
-   * 2) Time-based fallback: same topic + different difficulty (only if both users have been waiting long enough).
-   */
+  /*───────────────────────────────────────────────
+   *  Try match for one user
+   *───────────────────────────────────────────────*/
   async _tryMatchForUser(waiter) {
-    if (!waiter || waiter.status !== 'WAITING') return null;
-    console.log(`[queue] Trying to match ${waiter.userId} (${waiter.selectedTopics}, ${waiter.selectedDifficulty})`);
+    if (!waiter || waiter.status !== "WAITING") return null;
+    const topics = JSON.parse(waiter.selectedTopics);
+    const { selectedDifficulty } = waiter;
 
-    // 1) Perfect match first
-    for (const topic of waiter.selectedTopics) {
-      const q = this.queues.get(topic);
-      if (!q) continue;
-      const lane = q[waiter.selectedDifficulty];
-      const candidate = this._pickOldestOther(lane, waiter.userId);
-      if (candidate) {
-        return await this._finalizePair({ a: waiter, b: candidate, topic, difficulty: waiter.selectedDifficulty });
-      }
-    }
-
-    // 2) Time-based fallback matching
-    // Only try fallback if the current user has been waiting long enough
-    const now = nowMs();
-    const hasWaitedLongEnough = (now - waiter.enqueueAt) >= this.fallbackThresholdMs;
-    
-    if (hasWaitedLongEnough) {
-      for (const topic of waiter.selectedTopics) {
-        const q = this.queues.get(topic);
-        if (!q) continue;
-        const fallbackCandidate = this._findTimeBasedFallbackCandidate(q, waiter, now);
-        if (fallbackCandidate) {
-          return await this._finalizePair({ 
-            a: waiter, 
-            b: fallbackCandidate.waiter, 
-            topic, 
-            difficulty: fallbackCandidate.difficulty 
-          });
+    // 1 perfect match
+    for (const topic of topics) {
+      const laneKey = `queue:${topic}:${selectedDifficulty}`;
+      const candidates = await redisClient.zRange(laneKey, 0, -1);
+      const candidateId = candidates.find((id) => id !== waiter.userId);
+      if (candidateId) {
+        const candidate = await redisClient.hGetAll(`waiter:${candidateId}`);
+        if (candidate.status === "WAITING") {
+          return await this._finalizePair({ a: waiter, b: candidate, topic, difficulty: selectedDifficulty });
         }
       }
     }
 
-    console.log(`[queue] No match yet for ${waiter.userId} (waited ${now - waiter.enqueueAt}ms, threshold: ${this.fallbackThresholdMs}ms)`);
+    // 2️ fallback cross-difficulty
+    const now = nowMs();
+    if (now - Number(waiter.enqueueAt) >= this.fallbackThresholdMs) {
+      for (const topic of topics) {
+        const fb = await this._findFallbackCandidate(topic, waiter, now);
+        if (fb) {
+          return await this._finalizePair({ a: waiter, b: fb.waiter, topic, difficulty: fb.difficulty });
+        }
+      }
+    }
+
     return null;
   }
 
-  _pickOldestOther(lane, otherUserId) {
-    const candidates = lane.filter(w => w.userId !== otherUserId && w.status === 'WAITING');
-    if (candidates.length === 0) return null;
-    candidates.sort((a, b) => a.enqueueAt - b.enqueueAt);
-    return candidates[0];
-  }
-
-  _findTimeBasedFallbackCandidate(topicQueues, currentWaiter, now) {
-    // Find candidates in other difficulty levels who have also been waiting long enough
-    const currentDifficulty = currentWaiter.selectedDifficulty;
-    const idx = DIFFICULTIES.indexOf(currentDifficulty);
-    const order = [1, -1, 2, -2]
-      .map(d => idx + d)
-      .filter(i => i >= 0 && i < DIFFICULTIES.length);
+  /*───────────────────────────────────────────────
+   *  Find fallback candidate
+   *───────────────────────────────────────────────*/
+  async _findFallbackCandidate(topic, currentWaiter, now) {
+    const currentDiff = currentWaiter.selectedDifficulty;
+    const idx = DIFFICULTIES.indexOf(currentDiff);
+    const order = [1, -1, 2, -2].map((d) => idx + d).filter((i) => i >= 0 && i < DIFFICULTIES.length);
 
     for (const i of order) {
       const diff = DIFFICULTIES[i];
-      const lane = topicQueues[diff];
-      
-      // Find candidates who have been waiting long enough for fallback matching
-      const eligibleCandidates = lane.filter(w => 
-        w.userId !== currentWaiter.userId && 
-        w.status === 'WAITING' &&
-        (now - w.enqueueAt) >= this.fallbackThresholdMs
-      );
-      
-      if (eligibleCandidates.length > 0) {
-        // Sort by wait time (oldest first) and return the best candidate
-        eligibleCandidates.sort((a, b) => a.enqueueAt - b.enqueueAt);
-        return { waiter: eligibleCandidates[0], difficulty: diff };
+      const laneKey = `queue:${topic}:${diff}`;
+      const ids = await redisClient.zRange(laneKey, 0, -1);
+
+      for (const id of ids) {
+        if (id === currentWaiter.userId) continue;
+        const w = await redisClient.hGetAll(`waiter:${id}`);
+        if (w.status === "WAITING" && now - Number(w.enqueueAt) >= this.fallbackThresholdMs) {
+          return { waiter: w, difficulty: diff };
+        }
       }
     }
     return null;
   }
 
-  _findNearestDifficultyCandidate(topicQueues, desiredDifficulty, otherUserId) {
-    const idx = DIFFICULTIES.indexOf(desiredDifficulty);
-    const order = [1, -1, 2, -2]
-      .map(d => idx + d)
-      .filter(i => i >= 0 && i < DIFFICULTIES.length);
-
-    for (const i of order) {
-      const diff = DIFFICULTIES[i];
-      const lane = topicQueues[diff];
-      const candidate = this._pickOldestOther(lane, otherUserId);
-      if (candidate) {
-        return { waiter: candidate, difficulty: diff };
-      }
-    }
-    return null;
-  }
-
-    async _finalizePair({ a, b, topic, difficulty }) {
+  /*───────────────────────────────────────────────
+   *  Finalize match
+   *───────────────────────────────────────────────*/
+  async _finalizePair({ a, b, topic, difficulty }) {
     const matchId = genId();
     const createdAt = nowMs();
     const handshakeExpiresAt = createdAt + this.handshakeTtlMs;
-    
-
-    a.status = 'MATCHED';
-    b.status = 'MATCHED';
-    this._removeFromAllQueues(a);
-    this._removeFromAllQueues(b);
-
     const match = {
-        matchId,
-        userA: a.userId,
-        userB: b.userId,
-        topic,
-        difficulty,
-        createdAt,
-        handshakeExpiresAt,
-        question: null,
-        handshaked: false,   //NEW FLAG to distinguish matches that have been successful (not disconnected) and handshake has been done
-        closed: false
+      matchId,
+      userA: a.userId,
+      userB: b.userId,
+      topic,
+      difficulty,
+      createdAt: createdAt.toString(),
+      handshakeExpiresAt: handshakeExpiresAt.toString(),
+      handshaked: "true",
+      closed: "false",
     };
 
     try {
-        const question = await fetchRandomQuestion({ topic, difficulty });
-        match.question = question;
-    } catch (err) {
-        console.log(`[queue] Question service error for ${topic}/${difficulty}:`, err.message);
-        // For testing purposes, use a mock question instead of failing
-        match.question = {
-            id: `mock-${topic}-${difficulty}`,
-            title: `Mock ${difficulty} ${topic} Question`,
-            description: `This is a mock question for testing`,
-            difficulty: difficulty,
-            topic: topic
-        };
-        console.log(`[queue] Using mock question for testing`);
-    }
-
-    this.matches.set(matchId, match);
-    a.matchId = matchId;
-    b.matchId = matchId;
-    match.handshaked = true; 
-
-    this.waitingMap.set(a.userId, a);
-    this.waitingMap.set(b.userId, b);
-
-    return { status: 'matched', match };
-    }
-
-
-
-    _removeFromAllQueues(waiter) {
-    for (const topic of waiter.selectedTopics) {
-        const topicQueues = this.queues.get(topic);
-        if (!topicQueues) continue;
-        for (const d of DIFFICULTIES) {
-        const lane = topicQueues[d];
-        for (let i = lane.length - 1; i >= 0; i--) {
-            if (lane[i].userId === waiter.userId) {
-            lane.splice(i, 1);
-            }
-        }
-        }
-    }
-    }
-
-
-  _requeue(waiter) {
-    waiter.enqueueAt = nowMs();
-    waiter.status = 'WAITING';
-    for (const t of waiter.selectedTopics) {
-      this._ensureTopic(t);
-      this.queues.get(t)[waiter.selectedDifficulty].push(waiter);
-    }
-  }
-
-  _startSchedulers() {
-    // fairness tick
-    setInterval(() => {
-      for (const [, topicQueues] of this.queues) {
-        for (const d of DIFFICULTIES) {
-          topicQueues[d].sort((a, b) => a.enqueueAt - b.enqueueAt);
-        }
-      }
-    }, this.queueRecalcMs).unref();
-
-    // fallback matching tick - check for users who can now be matched via fallback
-    setInterval(async () => {
-      const now = nowMs();
-      const eligibleUsers = [];
-      
-      // Find users who have been waiting long enough for fallback
-      for (const [userId, waiter] of this.waitingMap) {
-        if (waiter.status !== 'WAITING') continue;
-        if (now - waiter.enqueueAt >= this.fallbackThresholdMs) {
-          eligibleUsers.push(waiter);
-        }
-      }
-      
-      // Try to match eligible users with each other
-      for (const waiter of eligibleUsers) {
-        if (waiter.status !== 'WAITING') continue; // Skip if already matched
-        
-        const result = await this._tryMatchForUser(waiter);
-        if (result?.status === 'matched') {
-          console.log(`[fallback] Matched ${waiter.userId} via background fallback`);
-        }
-      }
-    }, 5000).unref(); // Check every 5 seconds
-
-    // timeout
-    setInterval(() => {
-      const now = nowMs();
-      for (const [userId, waiter] of this.waitingMap) {
-        if (waiter.status !== 'WAITING') continue;
-        if (now - waiter.enqueueAt >= this.matchTimeoutMs) {
-          waiter.status = 'TIMED_OUT';
-          this._removeFromAllQueues(waiter);
-        }
-      }
-    }, 1000).unref();
-
-    // handshake TTL
-    setInterval(() => {
-    const now = nowMs();
-    for (const [matchId, m] of this.matches) {
-        //Skip TTL entirely for confirmed matches
-        if (m.handshaked === true) continue;
-
-        if (!m.closed && !m.handshaked && m.handshakeExpiresAt && now > m.handshakeExpiresAt) {
-        console.log(`[handshakeTTL] Expired match ${matchId}, requeueing users`);
-        const a = this.waitingMap.get(m.userA);
-        const b = this.waitingMap.get(m.userB);
-        if (a && a.status === 'MATCHED') { a.status = 'WAITING'; this._requeue(a); }
-        if (b && b.status === 'MATCHED') { b.status = 'WAITING'; this._requeue(b); }
-        m.closed = true;
-        }
-    }
-    }, 1000).unref();
-
-  }
-
-  getStatus(userId) {
-    const w = this.waitingMap.get(userId);
-    console.log(`[getStatus] user=${userId}, status=${w?.status}, matchId=${w?.matchId}`);
-
-
-    if (!w) return { status: 'NOT_FOUND' };
-    if (w.status === 'WAITING') {
-      return {
-        status: 'WAITING',
-        userId,
-        enqueueAt: w.enqueueAt,
-        expiresAt: w.enqueueAt + this.matchTimeoutMs
+      match.question = await fetchRandomQuestion({ topic, difficulty });
+    } catch {
+      match.question = {
+        id: `mock-${topic}-${difficulty}`,
+        title: `Mock ${difficulty} ${topic} Question`,
+        description: "This is a mock question for testing",
+        difficulty,
+        topic,
       };
     }
-    if (w.status === 'MATCHED') {
-      const match = this.matches.get(w.matchId);
-      return { status: 'MATCHED', match };
-    }
-    if (w.status === 'TIMED_OUT') {
-      return { status: 'TIMED_OUT' };
-    }
-    if (w.status === 'SOLO') {
-      return { status: 'SOLO' };
-    }
-    return { status: w.status };
+
+    await redisClient.hSet(`match:${matchId}`, {
+      ...match,
+      question: JSON.stringify(match.question),
+    });
+    await redisClient.expire(`match:${matchId}`, 180);
+
+    await redisClient.hSet(`waiter:${a.userId}`, { status: "MATCHED", matchId });
+    await redisClient.hSet(`waiter:${b.userId}`, { status: "MATCHED", matchId });
+
+    await this._removeFromAllQueues(a);
+    await this._removeFromAllQueues(b);
+
+    console.log(`[match] Matched ${a.userId} ↔ ${b.userId} on ${topic} (${difficulty})`);
+    return { status: "matched", match };
   }
 
-    handleDisconnect({ matchId, remainingUserId, action }) {
-    const match = this.matches.get(matchId);
-    if (!match) {
-        return { ok: false, error: 'MATCH_NOT_ACTIVE' };
-    }
-    if (match.closed) {
-        return { ok: false, error: 'MATCH_ALREADY_CLOSED' };
-    }
-    if (![match.userA, match.userB].includes(remainingUserId)) {
-        return { ok: false, error: 'NOT_IN_MATCH' };
-    }
-
-    // we can close the match now
-    match.closed = true;
-
-    const otherUserId = match.userA === remainingUserId ? match.userB : match.userA;
-    const otherWaiter = this.waitingMap.get(otherUserId);
-    if (otherWaiter) {
-        otherWaiter.status = 'DISCONNECTED';
-        this.waitingMap.set(otherUserId, otherWaiter);
-  }
-
-    const remWaiter = this.waitingMap.get(remainingUserId);
-    if (remWaiter) {
-        if (action === 'solo') {
-        remWaiter.status = 'SOLO';
-        return { ok: true, mode: 'SOLO', question: match.question };
-        }
-        if (action === 'requeue') {
-        remWaiter.status = 'WAITING';
-        this._requeue(remWaiter);
-        return { ok: true, mode: 'REQUEUED', expiresAt: remWaiter.enqueueAt + this.matchTimeoutMs };
-        }
-        return { ok: false, error: 'INVALID_ACTION' };
-    }
-    return { ok: false, error: 'USER_NOT_FOUND' };
-}
 
 }
+
+
