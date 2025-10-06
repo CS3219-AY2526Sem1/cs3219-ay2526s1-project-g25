@@ -63,7 +63,7 @@ export class MatchQueue {
     const topics = JSON.parse(waiter.selectedTopics);
     const { selectedDifficulty } = waiter;
 
-    // 1 perfect match
+    // 1️⃣ perfect match
     for (const topic of topics) {
       const laneKey = `queue:${topic}:${selectedDifficulty}`;
       const candidates = await redisClient.zRange(laneKey, 0, -1);
@@ -76,7 +76,7 @@ export class MatchQueue {
       }
     }
 
-    // 2️ fallback cross-difficulty
+    // 2️⃣ fallback cross-difficulty
     const now = nowMs();
     if (now - Number(waiter.enqueueAt) >= this.fallbackThresholdMs) {
       for (const topic of topics) {
@@ -161,7 +161,10 @@ export class MatchQueue {
     return { status: "matched", match };
   }
 
-_startFallbackChecker() {
+  /*───────────────────────────────────────────────
+   * Background fallback scheduler
+   *───────────────────────────────────────────────*/
+  _startFallbackChecker() {
     setInterval(async () => {
       const keys = await redisClient.keys("waiter:*");
       const now = nowMs();
