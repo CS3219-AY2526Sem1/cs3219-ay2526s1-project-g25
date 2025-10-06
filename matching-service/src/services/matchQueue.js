@@ -161,7 +161,21 @@ export class MatchQueue {
     return { status: "matched", match };
   }
 
+_startFallbackChecker() {
+    setInterval(async () => {
+      const keys = await redisClient.keys("waiter:*");
+      const now = nowMs();
 
+      for (const key of keys) {
+        const waiter = await redisClient.hGetAll(key);
+        if (!waiter.status || waiter.status !== "WAITING") continue;
+
+        if (now - Number(waiter.enqueueAt) >= this.fallbackThresholdMs) {
+          await this._tryMatchForUser(waiter);
+        }
+      }
+    }, this.fallbackCheckMs).unref();
+  }
 }
 
 
