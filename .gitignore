@@ -58,3 +58,10 @@ jspm_packages/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Redis server files
+redis/
+redis-windows.zip
+
+# Temporary directories
+question-service/
