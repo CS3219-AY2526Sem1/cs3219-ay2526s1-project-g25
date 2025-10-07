@@ -4,6 +4,8 @@ import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import app from './app.js';
 import { initGateway } from './ws/gateway.js';
+import "./services/redisClient.js";
+
 
 dotenv.config();
 const port = Number(process.env.PORT || 3004);
