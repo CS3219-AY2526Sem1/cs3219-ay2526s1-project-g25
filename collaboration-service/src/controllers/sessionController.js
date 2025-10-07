@@ -42,15 +42,15 @@ export const createSession = async (req, res) => {
  */
 export const getSession = async (req, res) => {
   try {
-    const s = await redisRepo.getJson(`session:${req.params.id}`);
+    const s = await redisRepo.getJson(`collab:session:${req.params.id}`);
     if (!s) return res.status(404).json({ error: "Not found" });
 
-    const doc = (await redisRepo.getJson(`document:${s.id}`)) || {
+    const doc = (await redisRepo.getJson(`collab:document:${s.id}`)) || {
       version: 0,
       text: "",
     };
-    const pres = (await redisRepo.getJson(`presence:${s.id}`)) || {};
-    const runs = (await redisRepo.getList(`runLogs:${s.id}`)) || [];
+    const pres = (await redisRepo.getJson(`collab:presence:${s.id}`)) || {};
+    const runs = (await redisRepo.getList(`collab:runLogs:${s.id}`)) || [];
 
     return res.json({ session: s, document: doc, presence: pres, runs });
   } catch (e) {
@@ -64,15 +64,15 @@ export const getSession = async (req, res) => {
  */
 export const joinSession = async (req, res) => {
   try {
-    const s = await redisRepo.getJson(`session:${req.params.id}`);
+    const s = await redisRepo.getJson(`collab:session:${req.params.id}`);
     if (!s) return res.status(404).json({ error: "Not found" });
 
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId required" });
 
-    const pres = (await redisRepo.getJson(`presence:${s.id}`)) || {};
+    const pres = (await redisRepo.getJson(`collab:presence:${s.id}`)) || {};
     pres[userId] = { cursor: null, lastSeen: Date.now() };
-    await redisRepo.setJson(`presence:${s.id}`, pres);
+    await redisRepo.setJson(`collab:presence:${s.id}`, pres);
 
     return res.json({ ok: true });
   } catch (e) {
@@ -86,19 +86,19 @@ export const joinSession = async (req, res) => {
  */
 export const leaveSession = async (req, res) => {
   try {
-    const s = await redisRepo.getJson(`session:${req.params.id}`);
+    const s = await redisRepo.getJson(`collab:session:${req.params.id}`);
     if (!s) return res.status(404).json({ error: "Not found" });
 
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId required" });
 
-    const pres = (await redisRepo.getJson(`presence:${s.id}`)) || {};
+    const pres = (await redisRepo.getJson(`collab:presence:${s.id}`)) || {};
     delete pres[userId];
-    await redisRepo.setJson(`presence:${s.id}`, pres);
+    await redisRepo.setJson(`collab:presence:${s.id}`, pres);
 
     if (Object.keys(pres).length === 0) {
       s.status = "ended";
-      await redisRepo.setJson(`session:${s.id}`, s);
+      await redisRepo.setJson(`collab:session:${s.id}`, s);
     }
 
     return res.json({ ok: true, status: s.status });

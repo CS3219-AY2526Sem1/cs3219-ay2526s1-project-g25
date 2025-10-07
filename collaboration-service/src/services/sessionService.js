@@ -9,11 +9,10 @@ export async function createSession(data) {
     ...data,
   };
 
-  await redisRepo.setJson(`session:${s.id}`, s);
-  await redisRepo.setJson(`document:${s.id}`, { version: 0, text: "" });
-  await redisRepo.setJson(`presence:${s.id}`, {});
-  await redisRepo.setJson(`runLogs:${s.id}`, []);
-  await redisRepo.setJson(`chat:${s.id}`, []);
+await redisRepo.setJson(`collab:session:${s.id}`, s);
+await redisRepo.setJson(`collab:document:${s.id}`, { version: 0, text: "" });
+await redisRepo.setJson(`collab:presence:${s.id}`, {});
+await redisRepo.setJson(`collab:runLogs:${s.id}`, []);
 
   return s;
 }
