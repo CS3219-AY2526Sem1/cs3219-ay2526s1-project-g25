@@ -19,6 +19,86 @@ export class MatchQueue {
     this._startFallbackChecker();
   }
 
+  async _removeFromAllQueues(waiter) {
+    const topics = JSON.parse(waiter.selectedTopics);
+    for (const t of topics)
+      for (const d of DIFFICULTIES)
+        await redisClient.zRem(`queue:${t}:${d}`, waiter.userId);
+  }
+
+  /*───────────────────────────────────────────────*/
+  async getStatus(userId) {
+    const w = await redisClient.hGetAll(`waiter:${userId}`);
+    if (!w || !w.status) return { status: "NOT_FOUND" };
+
+    if (w.status === "MATCHED") {
+      const match = await redisClient.hGetAll(`match:${w.matchId}`);
+      if (match.question) match.question = JSON.parse(match.question);
+      return { status: "MATCHED", match };
+    }
+
+    return {
+      status: w.status,
+      userId,
+      enqueueAt: Number(w.enqueueAt || 0),
+      expiresAt: Number(w.enqueueAt || 0) + this.matchTimeoutMs,
+    };
+  }
+
+  /*───────────────────────────────────────────────*/
+  async handleDisconnect({ matchId, remainingUserId, action }) {
+    const match = await redisClient.hGetAll(`match:${matchId}`);
+    if (!match || match.closed === "true") return { ok: false, error: "MATCH_NOT_ACTIVE" };
+
+    const otherUserId = match.userA === remainingUserId ? match.userB : match.userA;
+    await redisClient.hSet(`waiter:${otherUserId}`, { status: "DISCONNECTED" });
+
+    if (action === "solo") {
+      await redisClient.hSet(`waiter:${remainingUserId}`, { status: "SOLO" });
+      return { ok: true, mode: "SOLO", question: JSON.parse(match.question || "{}") };
+    }
+
+    if (action === "requeue") {
+      const waiter = await redisClient.hGetAll(`waiter:${remainingUserId}`);
+      waiter.status = "WAITING";
+      waiter.enqueueAt = nowMs().toString();
+      await redisClient.hSet(`waiter:${remainingUserId}`, waiter);
+      await redisClient.zAdd(`queue:${match.topic}:${match.difficulty}`, [
+        { score: nowMs(), value: remainingUserId },
+      ]);
+      return { ok: true, mode: "REQUEUED", expiresAt: nowMs() + this.matchTimeoutMs };
+    }
+
+    return { ok: false, error: "INVALID_ACTION" };
+  }
+
+    /** ───────────────────────────────
+   *  User manually leaves the queue
+   *  ─────────────────────────────── */
+  async leave(userId) {
+    // 1  Fetch the waiter from Redis
+    const waiter = await redisClient.hGetAll(`waiter:${userId}`);
+    if (!waiter || !waiter.status) {
+      return { removed: false, message: "User not found or not in queue" };
+    }
+
+    // 2 If the user is already matched, prevent leaving
+    if (waiter.status === "MATCHED") {
+      return { removed: false, message: "User already matched" };
+    }
+
+    // 3 Remove user from all queues
+    await this._removeFromAllQueues(waiter);
+
+    // 4 Delete the waiter record
+    await redisClient.del(`waiter:${userId}`);
+
+    console.log(`[leave] User ${userId} removed from all queues`);
+    return { removed: true, message: "User successfully removed from queue" };
+  }
+
+  
+
   /*───────────────────────────────────────────────
    *  Add user to queue
    *───────────────────────────────────────────────*/
