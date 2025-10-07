@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser'
 
 import authRoutes from '../routes/auth.js'
 import userRoutes from '../routes/user.js'
+import tokenRoutes from '../routes/token.js'
 const PORT = process.env.PORT || 3001
 
 const app = express()
@@ -14,6 +15,7 @@ app.use(cookieParser())
 
 app.use('/auth', authRoutes)
 app.use('/users', userRoutes)
+app.use('/api/token', tokenRoutes)
 
 app.get('/', (req, res) => res.json({ service: 'user-service', ok: true }))
 
