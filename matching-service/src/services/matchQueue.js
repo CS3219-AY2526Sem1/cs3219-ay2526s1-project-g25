@@ -2,6 +2,8 @@ import { redisClient } from "./redisClient.js";
 import { nowMs } from "../utils/clock.js";
 import { genId } from "../utils/id.js";
 import { fetchRandomQuestion } from "./questionClient.js";
+import axios from "axios";
+
 
 const DIFFICULTIES = ["easy", "medium", "hard"];
 
@@ -238,6 +240,20 @@ export class MatchQueue {
     await this._removeFromAllQueues(b);
 
     console.log(`[match] Matched ${a.userId} ↔ ${b.userId} on ${topic} (${difficulty})`);
+    
+    try {
+      const response = await axios.post("http://localhost:3004/sessions", {
+        userA: a.userId,
+        userB: b.userId,
+        topic,
+        difficulty,
+        questionId: match.question.id,
+      });
+      console.log(`[collab] 🎯 Session created: ${response.data.id}`);
+    } catch (err) {
+      console.error("[collab] ❌ Failed to create session:", err.message);
+    }
+
     return { status: "matched", match };
   }
 
