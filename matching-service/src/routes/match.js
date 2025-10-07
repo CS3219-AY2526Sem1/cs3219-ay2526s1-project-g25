@@ -7,15 +7,15 @@ import { authenticateUser } from '../middleware/authProxy.js';
 const router = express.Router();
 
 // POST /match/join  { userId, topics:[...], difficulty:'easy|medium|hard' }
-router.post('/join', validateJoin, joinQueue);
+router.post('/join', authenticateUser, validateJoin, joinQueue);
 
 // POST /match/leave { userId }
-router.post('/leave', validateLeave, leaveQueue);
+router.post('/leave', authenticateUser, validateLeave, leaveQueue);
 
 // GET /match/status/:userId
-router.get('/status/:userId', getStatus);
+router.get('/status/:userId', authenticateUser, getStatus);
 
 // POST /match/disconnect { matchId, remainingUserId, action:'solo'|'requeue' }
-router.post('/disconnect', validateDisconnectAction, handleDisconnect);
+router.post('/disconnect', authenticateUser, validateDisconnectAction, handleDisconnect);
 
 export default router;
