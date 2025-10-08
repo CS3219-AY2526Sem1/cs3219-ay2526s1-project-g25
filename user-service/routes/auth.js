@@ -2,7 +2,7 @@ import express from 'express'
 import { body } from 'express-validator'
 import {
   register,
-  verifyEmail,
+  verifyEmail, // for backend-only testing
   login,
   refreshToken,
   logout,
@@ -12,7 +12,9 @@ import {
 
 const router = express.Router()
 
-router.post('/register',
+// Register a new user
+router.post(
+  '/register',
   body('username').isLength({ min: 3 }),
   body('email').isEmail(),
   body('password').isString(),
@@ -20,11 +22,32 @@ router.post('/register',
   register
 )
 
+// Handle Supabase verification redirect (when user clicks email link)
 router.get('/verify', verifyEmail)
-router.post('/login', body('identifier').isString(), body('password').isString(), login)
+
+// Login user
+router.post(
+  '/login',
+  body('identifier').isString(),
+  body('password').isString(),
+  login
+)
+
+// Refresh JWT tokens
 router.post('/refresh', refreshToken)
+
+// Logout user
 router.post('/logout', logout)
+
+// Request password reset email
 router.post('/password-reset', body('email').isEmail(), requestPasswordReset)
-router.post('/password-reset/confirm', body('token').isString(), body('newPassword').isString(), confirmPasswordReset)
+
+// Confirm password reset
+router.post(
+  '/password-reset/confirm',
+  body('token').isString(),
+  body('newPassword').isString(),
+  confirmPasswordReset
+)
 
 export default router
