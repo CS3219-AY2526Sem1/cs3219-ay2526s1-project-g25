@@ -11,7 +11,7 @@ export default function MatchPage() {
   const token = getAccessToken();
   const payload = token ? parseJwt<{ userId: number }>(token) : null;
   const userId = payload?.userId ? String(payload.userId) : null;
-  const { phase, matchData, join, leave } = useMatchFlow(userId);
+  const { phase, matchData, join, leave, timeLeft} = useMatchFlow(userId);
   const [topics, setTopics] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState("easy");
 
@@ -52,7 +52,7 @@ export default function MatchPage() {
               {phase === "searching" ? "Searching…" : "Find Partner"}
             </button>
           </div>
-          <MatchStatusCard phase={phase} matchData={matchData} onCancel={leave} />
+          <MatchStatusCard phase={phase} matchData={matchData} timeLeft={timeLeft} onCancel={leave} />
         </div>
       </motion.div>
     </div>
