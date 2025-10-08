@@ -4,12 +4,12 @@ import express from 'express';
 import matchRouter from './routes/match.js';
 import { MatchQueue } from './services/matchQueue.js';
 import { initController } from './controllers/matchController.js';
-import { redisClient } from './services/redisClient.js'; // ✅ NEW import
+import { redisClient } from './services/redisClient.js'; // NEW import
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
-// ✅ Ensure Redis connects before starting the service
+// Ensure Redis connects before starting the service
 async function startServer() {
   try {
     await redisClient.connect();

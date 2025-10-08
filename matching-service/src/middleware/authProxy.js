@@ -17,7 +17,7 @@ export async function authenticateUser(req, res, next) {
     return res.status(401).json({ message: "Missing token" });
 
   try {
-    // ✅ Make sure endpoint matches your user-service route
+    // Make sure endpoint matches your user-service route
     const { data } = await axios.post(
       `${USER_SERVICE_BASE_URL}/api/token/verify`,
       { token }
@@ -48,7 +48,7 @@ export async function requireAdmin(req, res, next) {
     return res.status(401).json({ message: "Missing token" });
 
   try {
-    // ✅ Matches the verify-admin endpoint in user-service
+    // Matches the verify-admin endpoint in user-service
     const { data } = await axios.post(
       `${USER_SERVICE_BASE_URL}/api/token/verify-admin`,
       { token }
