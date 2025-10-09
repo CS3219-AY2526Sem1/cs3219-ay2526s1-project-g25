@@ -7,7 +7,9 @@ export default function TopicSelector({
   selected: string[];
   setSelected: (topics: string[]) => void;
 }) {
-  const topics = ["Arrays", "LinkedList", "Binary Tree", "Graphs", "Dynamic Programming"];
+  const topics = ["Arrays", "LinkedList", "Binary Tree", "Graphs", "Dynamic Programming", "Trees", "Greedy", "Two Pointers", "Sorting",
+    "Recursion"
+  ];
 
   function toggleTopic(t: string) {
     setSelected(selected.includes(t) ? selected.filter((x) => x !== t) : [...selected, t]);

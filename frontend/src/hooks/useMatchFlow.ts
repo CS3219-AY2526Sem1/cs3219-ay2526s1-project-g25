@@ -21,11 +21,11 @@ export function useMatchFlow(userId: string | null) {
     console.log("Joining match queue", { userId, topics, difficulty });
 
     try {
-      const { data } = await api.post("/match/join", {
-        userId,
-        topics,
-        difficulty,
-      });
+      const { data } = await api.post("/match/join", { 
+        userId, 
+        topics, 
+        difficulty: difficulty.toLowerCase() 
+        });
       console.log("join result:", data);
 
       if (data.status === "queued") {

@@ -11,7 +11,7 @@ export default function MatchPage() {
   const token = getAccessToken();
   const payload = token ? parseJwt<{ userId: number }>(token) : null;
   const userId = payload?.userId ? String(payload.userId) : null;
-  const { phase, matchData, join, leave, timeLeft} = useMatchFlow(userId);
+  const { phase, matchData, join, leave} = useMatchFlow(userId);
   const [topics, setTopics] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState("easy");
 
@@ -29,7 +29,7 @@ export default function MatchPage() {
         </h1>
         <div className="space-y-6">
           <div className="flex justify-center gap-3">
-            {["easy", "medium", "hard"].map((d) => (
+            {["EASY", "MEDIUM", "HARD"].map((d) => (
               <button
                 key={d}
                 onClick={() => setDifficulty(d)}
@@ -52,7 +52,7 @@ export default function MatchPage() {
               {phase === "searching" ? "Searching…" : "Find Partner"}
             </button>
           </div>
-          <MatchStatusCard phase={phase} matchData={matchData} timeLeft={timeLeft} onCancel={leave} />
+          <MatchStatusCard phase={phase} matchData={matchData} onCancel={leave} />
         </div>
       </motion.div>
     </div>
