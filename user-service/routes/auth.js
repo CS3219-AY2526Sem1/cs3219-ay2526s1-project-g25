@@ -1,5 +1,7 @@
 import express from 'express'
 import { body } from 'express-validator'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import {
   register,
   verifyEmail, // for backend-only testing
@@ -9,6 +11,9 @@ import {
   requestPasswordReset,
   confirmPasswordReset
 } from '../controllers/authController.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const router = express.Router()
 
@@ -42,11 +47,17 @@ router.post('/logout', logout)
 // Request password reset email
 router.post('/password-reset', body('email').isEmail(), requestPasswordReset)
 
+// Serve password reset page
+router.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'reset-password.html'))
+})
+
 // Confirm password reset
 router.post(
   '/password-reset/confirm',
-  body('token').isString(),
+  body('accessToken').isString(),
   body('newPassword').isString(),
+  body('confirmNewPassword').isString(),
   confirmPasswordReset
 )
 

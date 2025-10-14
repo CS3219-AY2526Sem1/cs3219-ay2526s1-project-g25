@@ -6,7 +6,6 @@ import jwt from 'jsonwebtoken'
 const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'dev_access_secret'
 const REFRESH_SECRET = process.env.JWT_REFRESH_TOKEN_SECRET || 'dev_refresh_secret'
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3001'
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001'
 
 // ---------------- Password Policy ----------------
 function passwordStrong(pw) {
@@ -40,41 +39,101 @@ export const register = async (req, res) => {
   const salt = generateSalt()
   const passwordHash = hashPassword(password, salt)
 
-  const { error: insertError } = await supabase
+  const { data: userData, error: insertError } = await supabase
     .from('users')
-    .insert([{ username, email, password_hash: passwordHash, salt, is_active: false }])
+    .insert([{ 
+      username, 
+      email, 
+      password_hash: passwordHash, 
+      salt, 
+      is_active: false,
+      difficulty_counts: { easy: 0, medium: 0, hard: 0 }
+    }])
+    .select()
+    .single()
 
   if (insertError) return res.status(500).json({ message: 'Error creating user', error: insertError })
 
-  // Trigger Supabase's built-in verification email
-  const { error: mailError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo: ${BASE_URL}/auth/verify }
-  })
+  // Always create our own verification token
+  const verificationToken = jwt.sign({ userId: userData.id, type: 'verify' }, ACCESS_SECRET, { expiresIn: '30m' })
+  const verificationUrl = `${BASE_URL}/auth/verify?token=${verificationToken}`
+  
+  // Skip email sending in test environment
+  if (process.env.NODE_ENV !== 'test') {
+    // Use Supabase auth to send email, but we'll handle verification with our token
+    // First, create the Supabase auth user (this triggers their email)
+    const { error: mailError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { 
+        // Redirect to our verification endpoint with our token
+        emailRedirectTo: verificationUrl,
+        data: {
+          username: username,
+          verification_token: verificationToken
+        }
+      }
+    })
 
-  if (mailError) {
-    console.error('[register] Supabase mail error:', mailError)
-    return res.status(500).json({ message: 'Could not send verification email', error: mailError.message })
+    if (mailError) {
+      console.error('[register] Supabase mail error:', mailError)
+      // If Supabase email fails, fall back to logging the verification info
+      console.log(`Manual verification needed for ${email}:`)
+      console.log(`Verification URL: ${verificationUrl}`)
+    } else {
+      console.log(`Verification email sent to ${email} via Supabase`)
+    }
   }
 
-  res.status(201).json({ message: 'Registered. Check your email to verify your account.' })
+  res.status(201).json({ 
+    message: 'Registered successfully. Check your email to verify your account.',
+    ...(process.env.NODE_ENV === 'test' && { verificationToken })
+  })
 }
 
 // ---------------- Email Verification ----------------
-export const verifyEmail = async (_req, res) => {
-  try {
-    // For backend-only: mark all unverified users as active once they reach this route.
-    // In production (frontend flow), this would verify using Supabase token params.
-    await supabase.from('users').update({ is_active: true }).eq('is_active', false)
+export const verifyEmail = async (req, res) => {
+  // Accept token from query parameters OR request body
+  const token = req.query.token || req.body.token
 
-    res.send(`
-      <h2>✅ Email verified successfully!</h2>
-      <p>Your account is now active. You can log in.</p>
-    `)
-  } catch (e) {
-    console.error('[verifyEmail] Error:', e.message)
-    res.status(500).send('Verification failed.')
+  if (!token) {
+    return res.status(400).json({ message: 'Missing token' })
+  }
+
+  try {
+    const payload = jwt.verify(token, ACCESS_SECRET)
+    
+    if (payload.type !== 'verify') {
+      return res.status(400).json({ message: 'Invalid token' })
+    }
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', payload.userId)
+      .limit(1)
+
+    const user = users?.[0]
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired token' })
+    }
+
+    if (user.is_active) {
+      return res.status(200).json({ message: 'Email already verified' })
+    }
+
+    // Generate refresh token for newly activated user
+    const refreshToken = makeRefreshToken(user.id)
+    
+    await supabase.from('users').update({ 
+      is_active: true,
+      refresh_token: refreshToken 
+    }).eq('id', payload.userId)
+
+    res.json({ message: 'Email verified successfully' })
+  } catch (error) {
+    console.error('[verifyEmail] Error:', error.message)
+    res.status(400).json({ message: 'Invalid or expired token' })
   }
 }
 
@@ -144,39 +203,111 @@ export const logout = async (req, res) => {
     await supabase.from('users').update({ refresh_token: null }).eq('id', payload.userId)
     res.json({ message: 'Logged out' })
   } catch {
-    res.json({ message: 'Logged out' }) // idempotent
+    res.json({ message: 'Logged out' }) // idempotent - always return success for security
   }
 }
 
 // ---------------- Password Reset ----------------
 export const requestPasswordReset = async (req, res) => {
   const { email } = req.body
-  const { data: users } = await supabase.from('users').select('*').eq('email', email).limit(1)
-  const user = users && users[0]
 
-  if (user) {
-    const token = jwt.sign({ userId: user.id, type: 'reset' }, ACCESS_SECRET, { expiresIn: '15m' })
-    const link = ${FRONTEND_URL}/auth/password-reset?token=${token}
-    await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: link } })
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' })
   }
 
-  res.json({ message: 'If the email exists, a reset link was sent.' })
+  try {
+    // Use Supabase's built-in password reset email
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${BASE_URL}/auth/reset-password`
+    })
+
+    // Always log what happened for debugging, but don't reveal to user
+    if (error) {
+      console.error('[requestPasswordReset] Supabase error:', error)
+    } else {
+      console.log(`Password reset email sent to ${email} via Supabase`)
+    }
+    
+    // Always return the same message for security (don't reveal if email exists or if there were errors)
+    res.json({ message: 'If the email exists and is verified, a password reset link was sent.' })
+
+  } catch (error) {
+    console.error('[requestPasswordReset] Unexpected error:', error)
+    // Still return the same message to not reveal system details
+    res.json({ message: 'If the email exists and is verified, a password reset link was sent.' })
+  }
 }
 
 export const confirmPasswordReset = async (req, res) => {
-  const { token, newPassword } = req.body
-  if (!passwordStrong(newPassword)) return res.status(400).json({ message: 'Password too weak' })
+  const { accessToken, newPassword, confirmNewPassword } = req.body
+
+  if (!accessToken) {
+    return res.status(400).json({ message: 'Access token is required' })
+  }
+
+  if (!newPassword || !confirmNewPassword) {
+    return res.status(400).json({ message: 'Missing password fields' })
+  }
+
+  if (newPassword !== confirmNewPassword) {
+    return res.status(400).json({ message: 'Passwords do not match' })
+  }
+
+  if (!passwordStrong(newPassword)) {
+    return res.status(400).json({ message: 'Password too weak' })
+  }
 
   try {
-    const payload = jwt.verify(token, ACCESS_SECRET)
-    if (payload.type !== 'reset') return res.status(400).json({ message: 'Invalid token' })
+    // Use fetch to directly call Supabase's REST API for password update
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': process.env.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        password: newPassword
+      })
+    })
 
-    const salt = generateSalt()
-    const hash = hashPassword(newPassword, salt)
-    await supabase.from('users').update({ salt, password_hash: hash, refresh_token: null }).eq('id', payload.userId)
+    const result = await response.json()
+
+    if (!response.ok) {
+      console.error('[confirmPasswordReset] Supabase API error:', result)
+      return res.status(400).json({ message: 'Failed to update password. Token may be invalid or expired.' })
+    }
+
+    // Get user info from the successful response
+    const user = result.user || result
+
+    // Update our local database with the new password and generate new refresh token
+    let newRefreshToken = null
+    let userId = null
+    if (user && user.email) {
+      // Find the user ID from our database
+      const { data: localUser } = await supabase.from('users').select('id').eq('email', user.email).single()
+      userId = localUser?.id
+      
+      if (userId) {
+        // Generate new password hash for our local database
+        const salt = generateSalt()
+        const passwordHash = hashPassword(newPassword, salt)
+        
+        // Generate a new refresh token after password reset
+        newRefreshToken = makeRefreshToken(userId)
+        
+        await supabase.from('users').update({ 
+          password_hash: passwordHash,
+          salt: salt,
+          refresh_token: newRefreshToken
+        }).eq('id', userId)
+      }
+    }
 
     res.json({ message: 'Password reset successful' })
-  } catch {
-    res.status(400).json({ message: 'Invalid or expired token' })
+  } catch (error) {
+    console.error('[confirmPasswordReset] Error:', error.message)
+    res.status(400).json({ message: 'Invalid or expired access token' })
   }
 }

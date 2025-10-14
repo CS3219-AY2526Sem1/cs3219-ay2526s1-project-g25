@@ -72,14 +72,10 @@ describe('Auth API', () => {
   describe('Email Verification', () => {
     it('should verify email with valid token', async () => {
       // Register user for verification test
-      await request(app).post('/auth/register').send(testUser2)
+      const registerRes = await request(app).post('/auth/register').send(testUser2)
       
-      // Get user ID
-      const { data: users } = await supabase.from('users').select('id').eq('email', testUser2.email)
-      const userId = users[0].id
-      
-      // Create verification token
-      const token = jwt.sign({ userId, type: 'verify' }, ACCESS_SECRET, { expiresIn: '24h' })
+      // Extract token from registration response (test environment only)
+      const token = registerRes.body.verificationToken
       
       const res = await request(app).get(`/auth/verify?token=${token}`)
       expect(res.statusCode).toBe(200)
@@ -242,61 +238,55 @@ describe('Auth API', () => {
       expect(res.body.message).toContain('reset link was sent')
     })
 
-    it('should reset password with valid token', async () => {
-      // Ensure user exists and get user ID
-      let { data: users } = await supabase.from('users').select('id').eq('email', testUser.email)
-      if (!users || users.length === 0) {
-        // Create the user if it doesn't exist
-        await request(app).post('/auth/register').send(testUser)
-        await supabase.from('users').update({ is_active: true }).eq('email', testUser.email)
-        // Wait a bit for the database to be consistent
-        await new Promise(resolve => setTimeout(resolve, 100))
-        const { data: newUsers } = await supabase.from('users').select('id').eq('email', testUser.email)
-        users = newUsers
-      }
-      const userId = users[0].id
-      
-      // Create reset token
-      const token = jwt.sign({ userId, type: 'reset' }, ACCESS_SECRET, { expiresIn: '15m' })
-      
+    it('should reject password reset with missing access token', async () => {
+      // Test the actual behavior - controller expects accessToken, not token
       const res = await request(app).post('/auth/password-reset/confirm').send({
-        token,
-        newPassword: 'NewStr0ngP@ssword!!'
+        newPassword: 'NewStr0ngP@ssword!!',
+        confirmNewPassword: 'NewStr0ngP@ssword!!'
       })
-      expect(res.statusCode).toBe(200)
-      expect(res.body.message).toBe('Password reset successful')
+      expect(res.statusCode).toBe(400)
+      expect(res.body.message).toBe('Access token is required')
+    })
+
+    it('should reject password reset with invalid access token', async () => {
+      // Test with invalid Supabase access token
+      const res = await request(app).post('/auth/password-reset/confirm').send({
+        accessToken: 'invalid-supabase-token',
+        newPassword: 'NewStr0ngP@ssword!!',
+        confirmNewPassword: 'NewStr0ngP@ssword!!'
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.body.message).toBe('Failed to update password. Token may be invalid or expired.')
     })
 
     it('should reject password reset with weak password', async () => {
-      const userId = 1
-      const token = jwt.sign({ userId, type: 'reset' }, ACCESS_SECRET, { expiresIn: '15m' })
-      
       const res = await request(app).post('/auth/password-reset/confirm').send({
-        token,
-        newPassword: 'weak'
+        accessToken: 'mock-token',
+        newPassword: 'weak',
+        confirmNewPassword: 'weak'
       })
       expect(res.statusCode).toBe(400)
       expect(res.body.message).toBe('Password too weak')
     })
 
-    it('should reject password reset with invalid token', async () => {
+    it('should reject password reset with mismatched passwords', async () => {
       const res = await request(app).post('/auth/password-reset/confirm').send({
-        token: 'invalid',
-        newPassword: 'NewStr0ngP@ssword!!'
+        accessToken: 'mock-token',
+        newPassword: 'NewStr0ngP@ssword!!',
+        confirmNewPassword: 'DifferentP@ssword!!'
       })
       expect(res.statusCode).toBe(400)
-      expect(res.body.message).toBe('Invalid or expired token')
+      expect(res.body.message).toBe('Passwords do not match')
     })
 
-    it('should reject password reset with wrong token type', async () => {
-      const token = jwt.sign({ userId: 1, type: 'verify' }, ACCESS_SECRET, { expiresIn: '15m' })
-      
+    it('should reject password reset with missing password fields', async () => {
       const res = await request(app).post('/auth/password-reset/confirm').send({
-        token,
+        accessToken: 'mock-token',
         newPassword: 'NewStr0ngP@ssword!!'
+        // missing confirmNewPassword
       })
       expect(res.statusCode).toBe(400)
-      expect(res.body.message).toBe('Invalid token')
+      expect(res.body.message).toBe('Missing password fields')
     })
   })
 })
