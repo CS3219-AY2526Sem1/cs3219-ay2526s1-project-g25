@@ -2,6 +2,14 @@ import request from 'supertest'
 import { jest } from '@jest/globals'
 import app from '../server.js'
 import * as supabaseModule from '../services/supabaseClient.js'
+import jwt from 'jsonwebtoken'
+
+const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'dev_access_secret';
+
+// Helper to create admin JWT token for testing
+function createAdminToken() {
+  return jwt.sign({ userId: 'admin123', roles: ['admin'] }, ACCESS_SECRET, { expiresIn: '15m' });
+}
 
 // Helpers to mock supabase.from(...)
 function mockFrom(returnMap) {
@@ -73,30 +81,38 @@ describe('controllers: createQuestion', () => {
   })
 
   it('returns 201 with created record', async () => {
+    const adminToken = createAdminToken();
     const created = { id: '1', title: 'T', description: 'D', difficulty: 'easy', topic: 'Math', test_cases: {} }
     mockFrom({
       insert: () => ({ select: () => ({ single: async () => ({ data: created, error: null }) }) })
     })
 
-    const res = await request(app).post('/questions').send({
-      title: created.title,
-      description: created.description,
-      difficulty: created.difficulty,
-      topic: created.topic,
-      test_cases: created.test_cases,
-    })
+    const res = await request(app)
+      .post('/questions')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        title: created.title,
+        description: created.description,
+        difficulty: created.difficulty,
+        topic: created.topic,
+        test_cases: created.test_cases,
+      })
     expect(res.status).toBe(201)
     expect(res.body.id).toBe('1')
   })
 
   it('handles database error with 500', async () => {
+    const adminToken = createAdminToken();
     mockFrom({
       insert: () => ({ select: () => ({ single: async () => ({ data: null, error: { message: 'boom' } }) }) })
     })
 
-    const res = await request(app).post('/questions').send({
-      title: 'T', description: 'D', difficulty: 'easy', topic: 'Math', test_cases: {}
-    })
+    const res = await request(app)
+      .post('/questions')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        title: 'T', description: 'D', difficulty: 'easy', topic: 'Math', test_cases: {}
+      })
     expect(res.status).toBe(500)
     expect(res.body.error).toBe('Database error')
   })
@@ -176,30 +192,50 @@ describe('controllers: updateQuestion', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
   it('400 when no fields', async () => {
-    const res = await request(app).put('/questions/abc').send({})
+    const adminToken = createAdminToken();
+    const res = await request(app)
+      .put('/questions/abc')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({})
     expect(res.status).toBe(400)
   })
 
   it('400 when id change attempted', async () => {
-    const res = await request(app).put('/questions/abc').send({ id: 'def', title: 'X' })
+    const adminToken = createAdminToken();
+    const res = await request(app)
+      .put('/questions/abc')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ id: 'def', title: 'X' })
     expect(res.status).toBe(400)
   })
 
   it('200 on success', async () => {
+    const adminToken = createAdminToken();
     mockFrom(buildUpdateMock({ id: 'abc' }, null))
-    const res = await request(app).put('/questions/abc').send({ title: 'X' })
+    const res = await request(app)
+      .put('/questions/abc')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'X' })
     expect(res.status).toBe(200)
   })
 
   it('404 when not found', async () => {
+    const adminToken = createAdminToken();
     mockFrom(buildUpdateMock(null, null))
-    const res = await request(app).put('/questions/abc').send({ title: 'X' })
+    const res = await request(app)
+      .put('/questions/abc')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'X' })
     expect(res.status).toBe(404)
   })
 
   it('500 on db error', async () => {
+    const adminToken = createAdminToken();
     mockFrom(buildUpdateMock(null, { message: 'e' }))
-    const res = await request(app).put('/questions/abc').send({ title: 'X' })
+    const res = await request(app)
+      .put('/questions/abc')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'X' })
     expect(res.status).toBe(500)
   })
 })
@@ -208,14 +244,20 @@ describe('controllers: deleteQuestion', () => {
   afterEach(() => { jest.restoreAllMocks() })
 
   it('204 on success', async () => {
+    const adminToken = createAdminToken();
     mockFrom(buildDeleteMock(null))
-    const res = await request(app).delete('/questions/abc')
+    const res = await request(app)
+      .delete('/questions/abc')
+      .set('Authorization', `Bearer ${adminToken}`)
     expect(res.status).toBe(204)
   })
 
   it('500 on db error', async () => {
+    const adminToken = createAdminToken();
     mockFrom(buildDeleteMock({ message: 'x' }))
-    const res = await request(app).delete('/questions/abc')
+    const res = await request(app)
+      .delete('/questions/abc')
+      .set('Authorization', `Bearer ${adminToken}`)
     expect(res.status).toBe(500)
   })
 })

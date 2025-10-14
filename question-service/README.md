@@ -21,7 +21,10 @@ $> cp .env.example .env
 $> vim .env
 ```
 
-Fill in the respective fields.
+Fill in the respective fields, including:
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- `JWT_ACCESS_TOKEN_SECRET` (must match user-service)
 
 <details>
 <summary>Set up on a local PostgreSQL Server</summary>

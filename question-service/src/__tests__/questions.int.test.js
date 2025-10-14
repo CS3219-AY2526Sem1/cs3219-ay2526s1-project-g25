@@ -2,6 +2,14 @@ import request from 'supertest';
 import { jest } from '@jest/globals';
 import app from '../server.js';
 import { supabase } from '../services/supabaseClient.js';
+import jwt from 'jsonwebtoken';
+
+const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'dev_access_secret';
+
+// Helper to create admin JWT token for testing
+function createAdminToken() {
+  return jwt.sign({ userId: 'admin123', roles: ['admin'] }, ACCESS_SECRET, { expiresIn: '15m' });
+}
 
 describe('Health endpoint', () => {
   it('GET /health returns ok', async () => {
@@ -13,8 +21,10 @@ describe('Health endpoint', () => {
 
 describe('Create question validation', () => {
   it('POST /questions should 400 on missing required fields', async () => {
+    const adminToken = createAdminToken();
     const res = await request(app)
       .post('/questions')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ title: '' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeDefined();
@@ -32,6 +42,7 @@ describe('Create question (valid)', () => {
   });
 
   it('POST /questions returns 201 and body of created question', async () => {
+    const adminToken = createAdminToken();
     const created = {
       id: '00000000-0000-0000-0000-000000000001',
       title: 'Calculate Power',
@@ -59,7 +70,10 @@ describe('Create question (valid)', () => {
       test_cases: created.test_cases,
     };
 
-    const res = await request(app).post('/questions').send(payload);
+    const res = await request(app)
+      .post('/questions')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(payload);
 
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({
