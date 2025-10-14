@@ -50,7 +50,7 @@ export const register = async (req, res) => {
   const { error: mailError } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: ${BASE_URL}/auth/verify }
+    options: { emailRedirectTo: `${BASE_URL}/auth/verify` }
   })
 
   if (mailError) {
@@ -104,10 +104,9 @@ export const login = async (req, res) => {
 
   const accessToken = makeAccessToken(user.id, user.roles)
   const refreshToken = makeRefreshToken(user.id)
-  await supabase.from('users').
-update({ refresh_token: refreshToken }).eq('id', user.id)
+  await supabase.from('users').update({ refresh_token: refreshToken }).eq('id', user.id)
 
-  res.json({ accessToken, refreshToken, user: { id: user.id, username: user.username, email: user.email } })
+  res.json({ accessToken, refreshToken, user: { id: user.id, username: user.username, email: user.email, roles: user.roles } })
 }
 
 // ---------------- Token Refresh ----------------
@@ -156,7 +155,7 @@ export const requestPasswordReset = async (req, res) => {
 
   if (user) {
     const token = jwt.sign({ userId: user.id, type: 'reset' }, ACCESS_SECRET, { expiresIn: '15m' })
-    const link = ${FRONTEND_URL}/auth/password-reset?token=${token}
+    const link = `${FRONTEND_URL}/auth/password-reset?token=${token}`
     await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: link } })
   }
 
