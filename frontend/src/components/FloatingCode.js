@@ -14,7 +14,10 @@ const codeSnippets = [
   'for (let i = 0; i < n; i++)',
   'map.set(key, value)',
   'graph[u].push(v)',
-  'queue.enqueue(node)'
+  'queue.enqueue(node)',
+  'queue.dequeue()',
+  'queue.isEmpty()',
+  'def quicksort(arr):'
 ];
 
 function FloatingCode() {

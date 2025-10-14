@@ -179,69 +179,6 @@ function AuthPage() {
           </motion.div>
         </motion.div>
 
-        {/* Features Section */}
-        <div className="features-section">
-          {[
-            {
-              icon: '🤝',
-              title: 'Smart Peer Matching',
-              desc: 'AI-powered algorithm pairs you with the perfect coding partner',
-              stat: '⚡ Instant Match',
-              delay: 0.6
-            },
-            {
-              icon: '💻',
-              title: 'Live Collaboration',
-              desc: 'Code together in real-time with synchronized editors',
-              stat: '🔄 Real-time Sync',
-              delay: 0.8
-            },
-            {
-              icon: '📚',
-              title: 'Curated Problems',
-              desc: 'Hand-picked interview questions from top tech companies',
-              stat: '🎯 LeetCode Style',
-              delay: 1.0
-            }
-          ].map((feature, index) => (
-            <motion.div
-              key={index}
-              className="feature"
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ 
-                duration: 0.6, 
-                delay: feature.delay,
-                type: "spring",
-                stiffness: 100
-              }}
-              whileHover={{ 
-                y: -12,
-                scale: 1.05,
-                rotateY: 5,
-                transition: { duration: 0.3 }
-              }}
-            >
-              <div className="feature-glow"></div>
-              <motion.span 
-                className="feature-icon"
-                whileHover={{ 
-                  scale: 1.2,
-                  rotate: [0, -10, 10, 0],
-                  transition: { duration: 0.5 }
-                }}
-              >
-                {feature.icon}
-              </motion.span>
-              <h3>{feature.title}</h3>
-              <p>{feature.desc}</p>
-              <div className="feature-stats">
-                <span>{feature.stat}</span>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
         {/* Floating Particles */}
         <div className="particles">
           {[...Array(20)].map((_, i) => (
