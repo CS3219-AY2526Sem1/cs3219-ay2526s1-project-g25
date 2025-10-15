@@ -79,6 +79,52 @@ describe('Difficulty Service', () => {
     expect(counts.hard).toBe(0)
   })
 
+  it('should handle database errors when fetching user data', async () => {
+    // Test with non-existent user ID to trigger error
+    await expect(incrementDifficulty('non-existent-id', 'easy'))
+      .rejects
+      .toThrow('Failed to fetch user data')
+  })
+
+  it('should handle database errors when updating difficulty counts', async () => {
+    // Create a user with invalid data to trigger update error
+    const { data } = await supabase
+      .from('users')
+      .insert({
+        username: 'errortest',
+        email: 'errortest@example.com',
+        password_hash: 'dummy',
+        salt: 'dummy',
+        is_active: true
+      })
+      .select()
+      .single()
+
+    const errorUserId = data.id
+    
+    // Delete the user to cause an update error
+    await supabase.from('users').delete().eq('id', errorUserId)
+    
+    // This should fail because user no longer exists
+    await expect(incrementDifficulty(errorUserId, 'easy'))
+      .rejects
+      .toThrow('Failed to fetch user data')
+  })
+
+  it('should handle database errors when getting difficulty counts', async () => {
+    // Test with non-existent user ID to trigger error
+    await expect(getDifficultyCounts('non-existent-id'))
+      .rejects
+      .toThrow('Failed to get difficulty counts')
+  })
+
+  it('should handle database errors when resetting difficulty counts', async () => {
+    // Test with non-existent user ID to trigger error  
+    await expect(resetDifficultyCounts('non-existent-id'))
+      .rejects
+      .toThrow('Failed to reset difficulty counts')
+  })
+
 })
 
 describe('Difficulty Controller API', () => {
