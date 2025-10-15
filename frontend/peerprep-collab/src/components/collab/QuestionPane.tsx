@@ -21,7 +21,7 @@ export default function QuestionPane() {
     const topic = "Graphs";
 
     return (
-        <div className="w-1/3 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm overflow-y-auto">
+        <div className="w-1/3 h-full bg-white border border-gray-200 rounded-2xl p-6 shadow-sm overflow-y-scroll">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{question_title}</h2>
             <div className="flex flex-wrap mb-4">
                 <TagPill label={difficulty} isDifficulty={true}/>
