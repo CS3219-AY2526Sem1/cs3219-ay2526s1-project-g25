@@ -1,3 +1,4 @@
+import ChatPane from "@/components/collab/ChatPane";
 import CodePane from "@/components/collab/CodePane";
 import ExecutionPane from "@/components/collab/ExecutionPane";
 import QuestionPane from "@/components/collab/QuestionPane";
@@ -10,6 +11,7 @@ export default function CollabPage() {
                 <CodePane/>
                 <ExecutionPane/>
             </div>
+            <ChatPane/>
         </div>
     )
 }
