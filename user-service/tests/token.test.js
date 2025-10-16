@@ -172,5 +172,100 @@ describe('Token Verification Endpoints', () => {
         message: 'Invalid or expired token'
       })
     })
+
+    it('should reject missing token for admin check', async () => {
+      const response = await request(app)
+        .post('/api/token/verify-admin')
+        .send({})
+
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({
+        valid: false,
+        isAdmin: false,
+        message: 'Token required'
+      })
+    })
+  })
+
+  describe('Edge cases and error handling', () => {
+    let inactiveUserId
+    let inactiveToken
+
+    beforeAll(async () => {
+      // Create inactive user for testing
+      const inactiveSalt = generateSalt()
+      const inactivePasswordHash = hashPassword('inactive_password', inactiveSalt)
+      
+      const { data: inactiveUser } = await supabase
+        .from('users')
+        .insert({
+          username: 'inactiveuser',
+          email: 'inactive@tokentest.com',
+          password_hash: inactivePasswordHash,
+          salt: inactiveSalt,
+          roles: ['user'],
+          is_active: false
+        })
+        .select()
+
+      inactiveUserId = inactiveUser[0].id
+      inactiveToken = jwt.sign({ userId: inactiveUserId, roles: ['user'] }, ACCESS_SECRET)
+    })
+
+    afterAll(async () => {
+      await supabase.from('users').delete().eq('id', inactiveUserId)
+    })
+
+    it('should reject token for inactive user', async () => {
+      const response = await request(app)
+        .post('/api/token/verify')
+        .send({ token: inactiveToken })
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({
+        valid: false,
+        message: 'User not found or inactive'
+      })
+    })
+
+    it('should reject inactive user for admin check', async () => {
+      const response = await request(app)
+        .post('/api/token/verify-admin')
+        .send({ token: inactiveToken })
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({
+        valid: false,
+        isAdmin: false,
+        message: 'User not found or inactive'
+      })
+    })
+
+    it('should reject token for non-existent user', async () => {
+      const nonExistentToken = jwt.sign({ userId: 99999, roles: ['user'] }, ACCESS_SECRET)
+      const response = await request(app)
+        .post('/api/token/verify')
+        .send({ token: nonExistentToken })
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({
+        valid: false,
+        message: 'User not found or inactive'
+      })
+    })
+
+    it('should reject non-existent user for admin check', async () => {
+      const nonExistentToken = jwt.sign({ userId: 99999, roles: ['admin'] }, ACCESS_SECRET)
+      const response = await request(app)
+        .post('/api/token/verify-admin')
+        .send({ token: nonExistentToken })
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({
+        valid: false,
+        isAdmin: false,
+        message: 'User not found or inactive'
+      })
+    })
   })
 })

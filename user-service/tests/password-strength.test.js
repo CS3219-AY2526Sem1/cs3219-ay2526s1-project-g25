@@ -105,10 +105,11 @@ describe('Password Strength Validation', () => {
 
   describe('Password Reset Validation', () => {
     it('should reject weak password in reset', async () => {
-      // Create a mock reset token (doesn't need to be valid for this test)
+      // Test password strength validation in reset flow
       const res = await request(app).post('/auth/password-reset/confirm').send({
-        token: 'mock-token',
-        newPassword: 'weak'
+        accessToken: 'mock-token',
+        newPassword: 'weak',
+        confirmNewPassword: 'weak'
       })
       expect(res.statusCode).toBe(400)
       expect(res.body.message).toBe('Password too weak')

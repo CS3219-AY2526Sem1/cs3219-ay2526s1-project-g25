@@ -4,12 +4,17 @@ import { verifyPassword, generateSalt, hashPassword } from '../src/utils/hash.js
 export const getProfile = async (req, res) => {
   const { data: users } = await supabase
     .from('users')
-    .select('id, username, email, roles, profile_pic, created_at')
+    .select('id, username, email, roles, profile_pic, created_at, difficulty_counts')
     .eq('id', req.userId)
     .limit(1)
 
   const user = users && users[0]
   if (!user) return res.status(404).json({ message: 'Not found' })
+
+  // Ensure difficulty_counts has default structure
+  if (!user.difficulty_counts) {
+    user.difficulty_counts = { easy: 0, medium: 0, hard: 0 }
+  }
 
   res.json(user)
 }
