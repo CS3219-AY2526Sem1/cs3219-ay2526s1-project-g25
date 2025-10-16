@@ -119,12 +119,12 @@ function LoginForm({ onSuccess }) {
       >
         <motion.button 
           type="button" 
-          className="link-button admin-link" 
-          onClick={() => window.location.href = 'http://localhost:3002'}
+          className="link-button forgot-password-link" 
+          onClick={() => toast.info('Password reset feature coming soon! Please contact support.')}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          👑 Admin? Click here
+          Forgot Password?
         </motion.button>
       </motion.div>
     </form>
