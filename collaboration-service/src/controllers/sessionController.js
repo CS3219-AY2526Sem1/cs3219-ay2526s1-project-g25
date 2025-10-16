@@ -118,7 +118,7 @@ const executeSchema = z.object({
 
 export const execute = async (req, res) => {
   try {
-    const s = await redisRepo.getJson(`session:${req.params.id}`);
+    const s = await redisRepo.getJson(`collab:session:${req.params.id}`);
     if (!s) return res.status(404).json({ error: "Not found" });
 
     const parsed = executeSchema.safeParse(req.body || {});
