@@ -172,7 +172,7 @@ export function initGateway(wss) {
 /**
  * Broadcast a payload to all sockets in a room except `exclude`
  */
-function broadcast(sessionId, payload, exclude) {
+export function broadcast(sessionId, payload, exclude) {
   const room = wsRooms.get(sessionId);
   if (!room) return;
   for (const sock of room) {

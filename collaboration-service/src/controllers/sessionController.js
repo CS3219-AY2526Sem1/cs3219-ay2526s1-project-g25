@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createSession as makeSession } from "../services/sessionService.js";
 import { redisRepo } from "../repos/redisRepo.js";
 import { runOnce } from "../services/executionService.js";
+import { broadcast } from "../ws/gateway.js";
 
 /**
  * Validation schema for session creation
@@ -138,6 +139,7 @@ export const execute = async (req, res) => {
 
     if (busy) return res.status(429).json({ error: "Execution in progress" });
     await redisRepo.pushToList(logKey, run);
+    broadcast(s.id, { type: "run:result", run });
 
     return res.status(201).json(run);
   } catch (e) {
