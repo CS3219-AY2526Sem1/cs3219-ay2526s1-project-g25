@@ -37,6 +37,11 @@ class AuthService {
   isAuthenticated() {
     return !!this.getAccessToken();
   }
+
+  async requestPasswordReset(email) {
+    const response = await axios.post(`${API_URL}/auth/password-reset`, { email });
+    return response.data;
+  }
 }
 
 export default new AuthService();

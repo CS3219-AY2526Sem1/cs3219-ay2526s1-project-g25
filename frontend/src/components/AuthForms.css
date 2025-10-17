@@ -141,8 +141,11 @@
 }
 
 .form-links {
-  text-align: center;
-  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 16px;
+  padding: 0;
 }
 
 .link-button {
@@ -153,7 +156,7 @@
   cursor: pointer;
   text-decoration: none;
   transition: all 0.3s;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .link-button:hover {
@@ -164,8 +167,9 @@
 .forgot-password-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 10px 20px;
   background: transparent;
   color: #667eea;
   border: none;
@@ -175,12 +179,13 @@
   text-decoration: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  margin: 0 auto;
 }
 
 .forgot-password-link::after {
   content: '';
   position: absolute;
-  bottom: 4px;
+  bottom: 6px;
   left: 50%;
   transform: translateX(-50%);
   width: 0;
@@ -190,11 +195,11 @@
 }
 
 .forgot-password-link:hover::after {
-  width: 80%;
+  width: 75%;
 }
 
 .forgot-password-link:hover {
   color: #764ba2;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
