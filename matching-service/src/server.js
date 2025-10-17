@@ -1,12 +1,22 @@
 // src/server.js
 import 'dotenv/config';
 import express from 'express';
+import cors from "cors";
 import matchRouter from './routes/match.js';
 import { MatchQueue } from './services/matchQueue.js';
 import { initController } from './controllers/matchController.js';
 import { redisClient } from './services/redisClient.js'; // NEW import
 
 const app = express();
+// --- CORS setup ---
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3002"
+];
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 app.use(express.json({ limit: '1mb' }));
 
 // Ensure Redis connects before starting the service
