@@ -14,15 +14,25 @@ function AuthPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If already logged in, redirect to dashboard
+    // If already logged in, redirect based on role
     if (authService.isAuthenticated()) {
-      navigate('/dashboard');
+      const user = authService.getCurrentUser();
+      const isAdmin = user?.roles?.includes('admin');
+      navigate(isAdmin ? '/admin' : '/dashboard');
     }
   }, [navigate]);
 
   const handleLoginSuccess = () => {
-    toast.success('Welcome back to PeerPrep! 🎉');
-    navigate('/dashboard');
+    const user = authService.getCurrentUser();
+    const isAdmin = user?.roles?.includes('admin');
+    
+    if (isAdmin) {
+      toast.success('Welcome Admin! 👑');
+      navigate('/admin');
+    } else {
+      toast.success('Welcome back to PeerPrep! 🎉');
+      navigate('/dashboard');
+    }
   };
 
   const handleSignupSuccess = () => {

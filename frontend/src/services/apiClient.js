@@ -16,9 +16,11 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log('API Request:', config.method.toUpperCase(), config.url, config.data);
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -26,9 +28,12 @@ apiClient.interceptors.request.use(
 // Response interceptor to handle token refresh
 apiClient.interceptors.response.use(
   (response) => {
+    console.log('API Response:', response.status, response.config.url);
     return response;
   },
   async (error) => {
+    console.error('API Error:', error.response?.status, error.response?.data);
+    
     const originalRequest = error.config;
 
     // If error is 401 and we haven't tried to refresh yet

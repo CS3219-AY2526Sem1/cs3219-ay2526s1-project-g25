@@ -10,7 +10,7 @@ function QuestionForm({ token, editingQuestion, onQuestionSaved, onCancel }) {
     description: '',
     difficulty: 'easy',
     topic: '',
-    test_cases: ''
+    test_cases: '{\n  "cases": [\n    {\n      "input": [],\n      "expected": ""\n    }\n  ]\n}'
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -47,7 +47,7 @@ function QuestionForm({ token, editingQuestion, onQuestionSaved, onCancel }) {
       description: '',
       difficulty: 'easy',
       topic: '',
-      test_cases: ''
+      test_cases: '{\n  "cases": [\n    {\n      "input": [],\n      "expected": ""\n    }\n  ]\n}'
     });
     setImageFile(null);
     setImagePreview(null);
@@ -152,9 +152,25 @@ function QuestionForm({ token, editingQuestion, onQuestionSaved, onCancel }) {
       onQuestionSaved();
     } catch (error) {
       console.error('Error saving question:', error);
+      console.error('Error response:', error.response?.data);
+      
       // apiClient interceptor already handles 401 errors and token refresh
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to save question';
-      toast.error(errorMsg);
+      let errorMsg = 'Failed to save question';
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        if (data.error && data.fields) {
+          errorMsg = `${data.error}: ${data.fields.join(', ')}`;
+        } else if (data.message) {
+          errorMsg = data.message;
+        } else if (data.error) {
+          errorMsg = data.error;
+        }
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      
+      toast.error(errorMsg, { duration: 6000 });
     } finally {
       setSubmitting(false);
     }
