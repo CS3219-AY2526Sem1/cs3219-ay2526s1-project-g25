@@ -1,0 +1,61 @@
+# Quick Setup Commands - Copy and paste these in your terminal
+
+# ===== STEP 1: Create Frontend .env =====
+# Run this in the project root directory:
+
+echo REACT_APP_USER_SERVICE_URL=http://localhost:3001 > frontend/.env
+echo REACT_APP_QUESTION_SERVICE_URL=http://localhost:4000 >> frontend/.env
+echo REACT_APP_MATCHING_UI_URL=http://localhost:3002 >> frontend/.env
+
+# ===== STEP 2: Create Question Service .env =====
+# Run this in the project root directory:
+
+echo PORT=4000 > question-service/.env
+echo NODE_ENV=development >> question-service/.env
+echo. >> question-service/.env
+echo # Replace these with your actual Supabase credentials >> question-service/.env
+echo SUPABASE_URL=your_supabase_url_here >> question-service/.env
+echo SUPABASE_ANON_KEY=your_supabase_anon_key_here >> question-service/.env
+echo. >> question-service/.env
+echo # JWT Secret - must match user-service >> question-service/.env
+echo JWT_ACCESS_TOKEN_SECRET=dev_access_secret >> question-service/.env
+
+# ===== STEP 3: Verify User Service .env exists =====
+# Check if user-service/.env exists
+# If not, create it with:
+
+echo PORT=3001 > user-service/.env
+echo NODE_ENV=development >> user-service/.env
+echo JWT_ACCESS_TOKEN_SECRET=dev_access_secret >> user-service/.env
+echo JWT_REFRESH_TOKEN_SECRET=dev_refresh_secret >> user-service/.env
+echo BASE_URL=http://localhost:3001 >> user-service/.env
+echo. >> user-service/.env
+echo # Replace with your Supabase credentials >> user-service/.env
+echo SUPABASE_URL=your_supabase_url_here >> user-service/.env
+echo SUPABASE_ANON_KEY=your_supabase_anon_key_here >> user-service/.env
+
+# ===== STEP 4: Update with Your Supabase Credentials =====
+# After creating the files, open them and replace:
+# - your_supabase_url_here → Your actual Supabase project URL
+# - your_supabase_anon_key_here → Your actual Supabase anon key
+
+# ===== STEP 5: Start Services (in separate terminals) =====
+
+# Terminal 1 - User Service:
+cd user-service
+npm start
+
+# Terminal 2 - Question Service:
+cd question-service
+npm start
+
+# Terminal 3 - Frontend:
+cd frontend
+npm start
+
+# ===== Verification =====
+# After all services start, verify:
+# - User Service: http://localhost:3001 (should show {"service":"user-service","ok":true})
+# - Question Service: http://localhost:4000/health (should show {"status":"ok"})
+# - Frontend: http://localhost:3000 (should show login page)
+

@@ -1,0 +1,103 @@
+========================================
+FIXES APPLIED - READY FOR DEMO
+========================================
+
+ISSUES FIXED:
+1. Session timeout errors - Added automatic JWT token refresh
+2. Image upload failing - Fixed authentication token handling
+3. Question creation failing - Implemented proper API client with interceptors
+
+CHANGES MADE:
+
+Frontend (feature/login-signup-ui branch):
+- Added automatic token refresh in authService.js
+- Created new apiClient.js with axios interceptors for auto token refresh
+- Updated QuestionForm.js to use apiClient for all API calls
+- Updated AdminDashboard.js to use apiClient for all API calls
+- Now handles 401 errors automatically by refreshing the access token
+
+Backend (already working):
+- question-service: JWT authentication and Cloudinary image upload working
+- user-service: Login, token refresh endpoints working
+- Both services have CORS properly configured
+
+========================================
+HOW TO RUN FOR DEMO:
+========================================
+
+1. ENVIRONMENT VARIABLES (verify these .env files exist):
+
+   frontend/.env:
+   REACT_APP_USER_SERVICE_URL=http://localhost:3001
+   REACT_APP_QUESTION_SERVICE_URL=http://localhost:4000
+
+   user-service/.env:
+   PORT=3001
+   JWT_ACCESS_TOKEN_SECRET=your_access_secret
+   JWT_REFRESH_TOKEN_SECRET=your_refresh_secret
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   BASE_URL=http://localhost:3001
+
+   question-service/.env:
+   PORT=4000
+   JWT_ACCESS_TOKEN_SECRET=your_access_secret (same as user-service)
+   SUPABASE_URL=your_supabase_url (same as user-service)
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key (same as user-service)
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+
+2. START SERVICES (open 3 separate terminals):
+
+   Terminal 1 - User Service:
+   cd user-service
+   npm install
+   npm start
+
+   Terminal 2 - Question Service:
+   cd question-service
+   npm install
+   npm start
+
+   Terminal 3 - Frontend:
+   cd frontend
+   npm install
+   npm start
+
+3. TEST THE FIXES:
+
+   a) Open browser to http://localhost:3000
+   b) Login as admin user
+   c) Go to Admin Dashboard
+   d) Try adding a question WITH an image
+   e) Wait 15+ minutes and try adding another question
+      - It should automatically refresh the token without errors!
+   f) Try editing and deleting questions
+
+========================================
+WHAT WAS THE PROBLEM:
+========================================
+
+1. JWT access tokens expire after 15 minutes
+2. Frontend had no automatic token refresh mechanism
+3. After 15 minutes, any API call would fail with 401
+4. Admin couldn't add images or questions because requests were failing
+
+FIX:
+- Created axios interceptor that catches 401 errors
+- Automatically calls refresh token endpoint
+- Retries the failed request with new token
+- All happens seamlessly without user knowing
+
+========================================
+BRANCHES:
+========================================
+
+- feature/login-signup-ui: Frontend with admin panel (FIXED)
+- user-service: User authentication service
+- question-service: Question management service
+
+========================================
+
