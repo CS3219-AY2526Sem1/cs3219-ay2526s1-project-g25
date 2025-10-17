@@ -15,7 +15,6 @@ function AdminDashboard() {
   const [stats, setStats] = useState({ total: 0, easy: 0, medium: 0, hard: 0 });
   
   const user = authService.getCurrentUser();
-  const token = authService.getAccessToken();
 
   useEffect(() => {
     // Verify admin access
@@ -25,6 +24,7 @@ function AdminDashboard() {
       return;
     }
     fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
   const fetchQuestions = async () => {
@@ -34,7 +34,6 @@ function AdminDashboard() {
       calculateStats(response.data);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching questions:', error);
       toast.error('Failed to load questions');
       setLoading(false);
     }
@@ -70,8 +69,7 @@ function AdminDashboard() {
       toast.success('Question deleted successfully!');
       fetchQuestions();
     } catch (error) {
-      console.error('Error deleting question:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to delete question';
+      const errorMsg = error.response?.data?.message || 'Failed to delete question';
       toast.error(errorMsg);
     }
   };
@@ -121,7 +119,6 @@ function AdminDashboard() {
 
       <div className="admin-content">
         <QuestionForm 
-          token={token}
           editingQuestion={editingQuestion}
           onQuestionSaved={handleQuestionSaved}
           onCancel={handleCancelEdit}

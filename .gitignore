@@ -1,3 +1,45 @@
+# Dependencies
 node_modules/
+npm-debug.log*
+
+# Environment files
 .env
-package-lock.json
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Redis (don't commit redis binaries)
+redis/
+redis-windows.zip
+
+# PDF documents
+*.pdf
+
+# Zip files
+*.zip
+
+# Temporary files
+tatus
+setup-env-files.txt
+FIXED_questions_routes.js
+
+# User service folder (if it's just downloaded, not part of repo)
+user-service/

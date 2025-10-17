@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import apiClient from '../../services/apiClient';
 import './QuestionForm.css';
 
-function QuestionForm({ token, editingQuestion, onQuestionSaved, onCancel }) {
+function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -151,10 +151,6 @@ function QuestionForm({ token, editingQuestion, onQuestionSaved, onCancel }) {
       resetForm();
       onQuestionSaved();
     } catch (error) {
-      console.error('Error saving question:', error);
-      console.error('Error response:', error.response?.data);
-      
-      // apiClient interceptor already handles 401 errors and token refresh
       let errorMsg = 'Failed to save question';
       
       if (error.response?.data) {
@@ -166,11 +162,9 @@ function QuestionForm({ token, editingQuestion, onQuestionSaved, onCancel }) {
         } else if (data.error) {
           errorMsg = data.error;
         }
-      } else if (error.message) {
-        errorMsg = error.message;
       }
       
-      toast.error(errorMsg, { duration: 6000 });
+      toast.error(errorMsg);
     } finally {
       setSubmitting(false);
     }
