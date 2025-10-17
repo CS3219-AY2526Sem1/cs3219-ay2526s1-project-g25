@@ -1,7 +1,3 @@
 node_modules/
 .env
 .env.test
-CS3219_AY2526S1_ ProjectDocument.pdf
-redis-windows.zip
-redis/
-coverage/*

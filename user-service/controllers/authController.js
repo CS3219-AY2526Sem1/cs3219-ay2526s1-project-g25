@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken'
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'dev_access_secret'
 const REFRESH_SECRET = process.env.JWT_REFRESH_TOKEN_SECRET || 'dev_refresh_secret'
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3001'
 
 // ---------------- Password Policy ----------------
 function passwordStrong(pw) {
@@ -56,7 +56,7 @@ export const register = async (req, res) => {
 
   // Always create our own verification token
   const verificationToken = jwt.sign({ userId: userData.id, type: 'verify' }, ACCESS_SECRET, { expiresIn: '30m' })
-  const verificationUrl = `${FRONTEND_URL}/auth/verify?token=${verificationToken}`
+  const verificationUrl = `${BASE_URL}/auth/verify?token=${verificationToken}`
   
   // Skip email sending in test environment
   if (process.env.NODE_ENV !== 'test') {
@@ -163,9 +163,10 @@ export const login = async (req, res) => {
 
   const accessToken = makeAccessToken(user.id, user.roles)
   const refreshToken = makeRefreshToken(user.id)
-  await supabase.from('users').update({ refresh_token: refreshToken }).eq('id', user.id)
+  await supabase.from('users').
+update({ refresh_token: refreshToken }).eq('id', user.id)
 
-  res.json({ accessToken, refreshToken, user: { id: user.id, username: user.username, email: user.email, roles: user.roles } })
+  res.json({ accessToken, refreshToken, user: { id: user.id, username: user.username, email: user.email } })
 }
 
 // ---------------- Token Refresh ----------------
@@ -217,7 +218,7 @@ export const requestPasswordReset = async (req, res) => {
   try {
     // Use Supabase's built-in password reset email
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${FRONTEND_URL}/auth/reset-password`
+      redirectTo: `${BASE_URL}/auth/reset-password`
     })
 
     // Always log what happened for debugging, but don't reveal to user
@@ -274,32 +275,7 @@ export const confirmPasswordReset = async (req, res) => {
 
     if (!response.ok) {
       console.error('[confirmPasswordReset] Supabase API error:', result)
-
-      // Map Supabase errors to user-friendly messages
-      const msg = (result && (result.msg || result.message || '')) || ''
-      const code = (result && (result.error_code || result.code)) || ''
-      const normalized = `${code}`.toLowerCase() + ' ' + `${msg}`.toLowerCase()
-
-      let friendly = 'We could not update your password.'
-      // Specific known cases
-      if (normalized.includes('same_password') || normalized.includes('same password')) {
-        friendly = 'New password must be different from your current password.'
-      } else if (normalized.includes('weak_password') || normalized.includes('weak password')) {
-        friendly = 'Password does not meet the strength requirements.'
-      } else if (
-        normalized.includes('bad_jwt') ||
-        normalized.includes('jwt expired') ||
-        normalized.includes('expired') ||
-        normalized.includes('invalid jwt') ||
-        normalized.includes('unable to parse') ||
-        normalized.includes('malformed')
-      ) {
-        friendly = 'The reset link is invalid or has expired. Please request a new link.'
-      } else if (normalized.includes('rate limit') || normalized.includes('too many requests') || normalized.includes('429')) {
-        friendly = 'Too many attempts. Please try again later.'
-      }
-
-      return res.status(400).json({ message: friendly })
+      return res.status(400).json({ message: 'Failed to update password. Token may be invalid or expired.' })
     }
 
     // Get user info from the successful response
