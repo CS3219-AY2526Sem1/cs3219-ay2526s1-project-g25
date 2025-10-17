@@ -1,0 +1,21 @@
+# Node
+node_modules/
+package-lock.json
+
+# Env files
+.env
+.env.local
+
+# Coverage reports
+coverage/
+lcov-report/
+
+# Build / cache
+dist/
+build/
+.next/
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
