@@ -1,13 +1,27 @@
-export default function ChatBubble({isUser, children}) {
-    const bubble_justify = isUser ? "justify-end" : "justify-start";
-    const bubble_color = isUser ? "bg-indigo-600" : "bg-gray-100";
-    const text_color = isUser ? "text-white" : "text-gray-900";
+"use client"
 
-    return (
-        <div className={`w-full flex ${bubble_justify}`}>
-            <div className={`px-3.5 py-2 ${bubble_color} rounded justify-start items-center gap-3 inline-flex`}>
-                <p className={`${text_color} text-sm font-normal`}>{children}</p>
-            </div>
-        </div>
-    )
+import type React from "react"
+
+import { motion } from "framer-motion"
+
+interface ChatBubbleProps {
+  isUser: boolean
+  children: React.ReactNode
+}
+
+export default function ChatBubble({ isUser, children }: ChatBubbleProps) {
+  const bubble_justify = isUser ? "justify-end" : "justify-start"
+  const bubble_color = isUser ? "bg-gradient-to-r from-purple-600 to-purple-500" : "bg-slate-800"
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`w-full flex ${bubble_justify}`}
+    >
+      <div className={`px-4 py-2.5 ${bubble_color} rounded-2xl max-w-[80%] shadow-lg`}>
+        <p className="text-white text-sm leading-relaxed">{children}</p>
+      </div>
+    </motion.div>
+  )
 }

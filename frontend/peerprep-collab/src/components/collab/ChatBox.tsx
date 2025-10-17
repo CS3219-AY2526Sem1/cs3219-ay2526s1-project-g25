@@ -1,14 +1,37 @@
+"use client"
+
+import { Send } from "lucide-react"
+import { useState } from "react"
+import { motion } from "framer-motion"
+
 export default function ChatBox() {
-    return (
-        <div className="w-full pl-3 pr-1 py-1 rounded-3xl border border-gray-200 items-center gap-2 inline-flex justify-between">
-            <div className="w-full flex items-center gap-2">
-                <input className="w-full text-black text-xs font-medium leading-4 focus:outline-none" placeholder="Type here..."/>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="items-center flex px-3 py-2 bg-indigo-600 rounded-full shadow ">
-                <h3 className="text-white text-xs font-semibold leading-4 px-2">Send</h3>
-              </button>
-            </div>
-        </div>
-    );
+  const [message, setMessage] = useState("")
+
+  const handleSend = () => {
+    if (message.trim()) {
+      // Handle send logic
+      setMessage("")
+    }
+  }
+
+  return (
+    <div className="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/20 transition-all">
+      <input
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleSend()}
+        className="flex-1 bg-transparent text-slate-200 text-sm placeholder:text-slate-500 focus:outline-none"
+        placeholder="Type your message..."
+      />
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={handleSend}
+        className="p-2 bg-gradient-to-r from-purple-600 to-purple-500 rounded-lg shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all"
+      >
+        <Send className="w-4 h-4 text-white" />
+      </motion.button>
+    </div>
+  )
 }
+
