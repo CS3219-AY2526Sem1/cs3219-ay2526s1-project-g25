@@ -14,6 +14,21 @@ function Dashboard() {
     navigate('/auth');
   };
 
+  const handleStartMatching = () => {
+  const token = authService.getAccessToken();
+  if (!token) {
+    toast.error("Please log in again");
+    navigate("/auth");
+    return;
+  }
+
+  const matchingUIUrl =
+    process.env.REACT_APP_MATCHING_UI_URL || "http://localhost:3002";
+
+  // Redirect with token as query param
+  window.location.href = `${matchingUIUrl}/match?token=${token}`;
+};
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -45,7 +60,7 @@ function Dashboard() {
             <div className="card-icon">🎯</div>
             <h3>Find a Match</h3>
             <p>Get paired with a peer at your skill level</p>
-            <button className="card-button">Start Matching</button>
+            <button className="card-button" onClick={handleStartMatching}>Start Matching</button>
           </div>
 
           <div className="dashboard-card">
