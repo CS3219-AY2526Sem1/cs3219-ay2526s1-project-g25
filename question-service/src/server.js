@@ -15,7 +15,15 @@ app.use('/questions', questionsRouter);
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Only start the HTTP server when not running tests
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5050;
+
+process.on("uncaughtException", err => {
+  console.error("[FATAL] Uncaught exception:", err);
+});
+
+process.on("unhandledRejection", err => {
+  console.error("[FATAL] Unhandled rejection:", err);
+});
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
     console.log(`Question service listening on port ${port}`);

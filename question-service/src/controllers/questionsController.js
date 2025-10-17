@@ -90,6 +90,7 @@ export async function listQuestions(req, res) {
 export async function getRandomQuestion(req, res) {
   try {
     const { topic, difficulty } = req.query;
+    console.log("hello there from question service")
     let q = supabase.from('questions').select('*');
 
     if (topic) q = q.eq('topic', topic);
@@ -102,8 +103,9 @@ export async function getRandomQuestion(req, res) {
     }
     if (!data || data.length === 0) {
       return res.status(404).json({ error: 'No questions found for given filters' });
+      
     }
-
+    console.log(data);
     const idx = Math.floor(Math.random() * data.length);
     return res.json(data[idx]);
   } catch (err) {
