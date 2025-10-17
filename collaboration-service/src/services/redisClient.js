@@ -3,11 +3,20 @@ import { createClient } from 'redis';
 import dotenv from 'dotenv';
 dotenv.config();
 
+const redisUrl = process.env.REDIS_URL;
+
 export const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  url: redisUrl,
+  socket: {
+    tls: redisUrl.startsWith('rediss://'), // enable TLS for Upstash
+  },
 });
 
 redisClient.on('connect', () => console.log('[Redis] Connected successfully'));
+redisClient.on('ready', () => console.log('[Redis] Ready for commands'));
 redisClient.on('error', (err) => console.error('[Redis] Error:', err));
 
-await redisClient.connect();
+// Connect only once
+if (!redisClient.isOpen) {
+  await redisClient.connect();
+}
