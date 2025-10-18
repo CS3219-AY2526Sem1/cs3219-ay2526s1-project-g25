@@ -126,7 +126,7 @@ export const execute = async (req, res) => {
     if (!parsed.success)
       return res.status(400).json({ error: parsed.error.issues });
 
-    const logKey = `runLogs:${s.id}`;
+    const logKey = `collab:runLogs:${s.id}`;
     const prevLogs = (await redisRepo.getList(logKey)) || [];
 
     const { busy, run } = await runOnce(
