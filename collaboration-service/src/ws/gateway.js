@@ -52,34 +52,83 @@ export function initGateway(wss) {
         const msg = JSON.parse(buf.toString());
 
         // ---- Document Operation ----
+        // if (msg.type === "doc:op") {
+        //   const parsed = docOpSchema.safeParse(msg.op);
+        //   if (!parsed.success)
+        //     return ws.send(JSON.stringify({ type: "error", error: parsed.error.issues }));
+
+        //   const liveDoc =
+        //     (await redisRepo.getJson(`collab:document:${sessionId}`)) || { version: 0, text: "" };
+
+        //   if (parsed.data.version !== liveDoc.version) {
+        //     return ws.send(JSON.stringify({ type: "doc:resync", document: liveDoc }));
+        //   }
+
+        //   const updatedDoc = applyOp(liveDoc, parsed.data);
+        //   await redisRepo.setJson(`collab:document:${sessionId}`, updatedDoc);
+
+        //   const payload = { type: "doc:applied", document: updatedDoc, op: parsed.data, by: userId };
+        //   broadcast(sessionId, payload, ws);
+        //   ws.send(JSON.stringify(payload));
+        //   return;
+        // }
+
         if (msg.type === "doc:op") {
           const parsed = docOpSchema.safeParse(msg.op);
-          if (!parsed.success)
+          if (!parsed.success) {
             return ws.send(JSON.stringify({ type: "error", error: parsed.error.issues }));
+          }
 
-          const liveDoc =
-            (await redisRepo.getJson(`collab:document:${sessionId}`)) || { version: 0, text: "" };
+          const raw = (await redisRepo.getJson(`document:${sessionId}`)) || {};
+          const liveDoc = {
+            text: typeof raw.text === "string" ? raw.text : "",
+            version: Number(raw.version ?? 0),
+          };
 
-          if (parsed.data.version !== liveDoc.version) {
+          const clientVer = Number(parsed.data.version);
+          if (!Number.isInteger(clientVer) || clientVer !== liveDoc.version) {
+            console.log("[WS] doc:resync version check %d:%d", Number(parsed.data.version), Number(liveDoc.version));
+            // send real snapshot so client can recover
             return ws.send(JSON.stringify({ type: "doc:resync", document: liveDoc }));
           }
 
+          // apply locally (pure) and persist exactly once
           const updatedDoc = applyOp(liveDoc, parsed.data);
-          await redisRepo.setJson(`collab:document:${sessionId}`, updatedDoc);
+          await redisRepo.setJson(`document:${sessionId}`, updatedDoc);
 
-          const payload = { type: "doc:applied", document: updatedDoc, op: parsed.data, by: userId };
+          const payload = {
+            type: "doc:applied",
+            document: updatedDoc,
+            op: parsed.data,
+            by: userId,
+          };
+
           broadcast(sessionId, payload, ws);
           ws.send(JSON.stringify(payload));
           return;
         }
 
         // ---- Cursor Update ----
-        if (msg.type === "cursor:update") {
-          const p = (await redisRepo.getJson(`collab:presence:${sessionId}`)) || {};
-          touchPresence(p, userId, msg.cursor);
-          await redisRepo.setJson(`collab:presence:${sessionId}`, p);
+        // if (msg.type === "cursor:update") {
+        //   const p = (await redisRepo.getJson(`collab:presence:${sessionId}`)) || {};
+        //   touchPresence(p, userId, msg.cursor);
+        //   await redisRepo.setJson(`collab:presence:${sessionId}`, p);
 
-          const payload = { type: "cursor:update", userId, cursor: msg.cursor };
+        //   const payload = { type: "cursor:update", userId, cursor: msg.cursor };
+        //   broadcast(sessionId, payload, ws);
+        //   return;
+        // }
+        if (msg.type === "cursor:update") {
+          const p =
+            (await redisRepo.getJson(`presence:${sessionId}`)) || {};
+          touchPresence(p, userId, msg.cursor);
+          await redisRepo.setJson(`presence:${sessionId}`, p);
+
+          const payload = {
+            type: "cursor:update",
+            userId,
+            cursor: msg.cursor,
+          };
           broadcast(sessionId, payload, ws);
           return;
         }
