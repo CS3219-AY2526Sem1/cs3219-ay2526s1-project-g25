@@ -4,13 +4,13 @@ import { Send } from "lucide-react"
 import { useState } from "react"
 import { motion } from "framer-motion"
 
-export default function ChatBox() {
+export default function ChatBox({ onSend }: { onSend: (msg: string) => void }) {
   const [message, setMessage] = useState("")
 
   const handleSend = () => {
     if (message.trim()) {
-      // Handle send logic
-      setMessage("")
+      onSend(message)   // Send to backend via WebSocket (ChatPane handles it)
+      setMessage("")    // Clear input after sending
     }
   }
 

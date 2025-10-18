@@ -4,10 +4,53 @@ import ChatBox from "./ChatBox"
 import ChatBubble from "./ChatBubble"
 import { motion } from "framer-motion"
 import { MessageSquare, Sparkles } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { connectCollabSocket } from "@/lib/collabSocket"
+
+// Utility: extract params from URL (sessionId, userId)
+function getParams() {
+  if (typeof window === "undefined") return { sessionId: "", userId: "" }
+  const url = new URL(window.location.href)
+  return {
+    sessionId: url.searchParams.get("sessionId") || "demo-session",
+    userId: url.searchParams.get("userId") || "guest-" + Math.random().toString(36).slice(2, 7)
+  }
+}
 
 export default function ChatPane() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai">("chat")
+  const [messages, setMessages] = useState<any[]>([])
+  const [sendMsg, setSendMsg] = useState<(data: any) => void>(() => () => {})
+
+  const { sessionId, userId } = getParams()
+
+  // Initialize WebSocket
+useEffect(() => {
+  const { send } = connectCollabSocket(sessionId, userId, (msg) => {
+    if (msg.type === "chat:message") {
+      //FIX: Ignore messages that you yourself sent,
+      // since they're already added locally in handleSend()
+      if (msg.userId !== userId) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    }
+
+    if (msg.type === "init" && Array.isArray(msg.chat)) {
+      setMessages(msg.chat);
+    }
+  });
+
+  setSendMsg(() => send);
+}, [sessionId, userId]);
+
+
+  // Handle sending a new message
+  function handleSend(text: string) {
+    if (!text.trim()) return
+    const msg = { type: "chat:message", text, userId }
+    sendMsg(msg)
+    setMessages((prev) => [...prev, { ...msg, ts: Date.now() }])
+  }
 
   return (
     <motion.div
@@ -55,16 +98,16 @@ export default function ChatPane() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-3">
-        <ChatBubble isUser={false}>Hey! Ready to solve this problem?</ChatBubble>
-        <ChatBubble isUser={true}>Yes! Let's start with the brute force approach</ChatBubble>
-        <ChatBubble isUser={false}>Good idea. We can optimize later</ChatBubble>
-        <ChatBubble isUser={true}>I'll write the initial solution</ChatBubble>
-        <ChatBubble isUser={false}>Looks good! Let me add some edge cases</ChatBubble>
+        {messages.map((m, i) => (
+          <ChatBubble key={i} isUser={m.userId === userId}>
+            {m.text}
+          </ChatBubble>
+        ))}
       </div>
 
       {/* Input */}
       <div className="p-4 border-t border-slate-700/50 bg-slate-800/50">
-        <ChatBox />
+        <ChatBox onSend={handleSend} />
       </div>
     </motion.div>
   )
