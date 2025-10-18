@@ -1,6 +1,7 @@
 import { redisRepo } from "../repos/redisRepo.js";
 import { applyOp } from "../services/documentService.js";
 import { touchPresence } from "../services/presenceService.js";
+import { generateAIResponse } from "../services/aiService.js";
 import { z } from "zod";
 
 // WebSocket rooms (in-memory connection maps; lightweight, ephemeral)
@@ -42,8 +43,9 @@ export function initGateway(wss) {
     // ✅ fixed keys
     const doc = (await redisRepo.getJson(`collab:document:${sessionId}`)) || { version: 0, text: "" };
     const chat = (await redisRepo.getList(`collab:chat:${sessionId}`)) || [];
+    const aiChat = (await redisRepo.getList(`collab:ai-chat:${sessionId}`)) || [];
 
-    ws.send(JSON.stringify({ type: "init", document: doc, chat, message: "Connected successfully" }));
+    ws.send(JSON.stringify({ type: "init", document: doc, chat, aiChat, message: "Connected successfully" }));
 
     ws.on("message", async (buf) => {
       try {
@@ -89,6 +91,55 @@ export function initGateway(wss) {
           const payload = { type: "chat:message", ...chatMsg };
           broadcast(sessionId, payload, null);
           return;
+        }
+
+        // ---- AI Chat Message ----
+        if (msg.type === "ai:message") {
+          try {
+            // Get current session data for context
+            const session = await redisRepo.getJson(`collab:session:${sessionId}`);
+            const doc = await redisRepo.getJson(`collab:document:${sessionId}`);
+            
+            // Build context
+            const context = {
+              code: doc?.text || "",
+              language: msg.language || "python",
+              error: msg.error || null,
+            };
+
+            // Add question context if available
+            if (session) {
+              context.question = {
+                title: session.questionTitle || session.topic,
+                description: session.questionDescription || "",
+                difficulty: session.difficulty
+              };
+            }
+
+            // Generate AI response
+            const aiResponse = await generateAIResponse(sessionId, msg.text, context);
+
+            // Store AI message
+            const aiMsg = {
+              userId: "ai-assistant",
+              text: aiResponse,
+              ts: Date.now(),
+              type: "ai"
+            };
+            await redisRepo.pushToList(`collab:ai-chat:${sessionId}`, aiMsg);
+
+            // Broadcast AI response to all users in the session
+            const payload = { type: "ai:message", ...aiMsg };
+            broadcast(sessionId, payload, null);
+            return;
+          } catch (error) {
+            console.error("[WS Gateway] AI message error:", error);
+            ws.send(JSON.stringify({ 
+              type: "error", 
+              error: "AI service error: " + error.message 
+            }));
+            return;
+          }
         }
 
         ws.send(JSON.stringify({ type: "error", error: "unknown message type" }));
