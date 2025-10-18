@@ -80,38 +80,74 @@ export default function ChatPane() {
   // Get a hint from AI
   async function handleGetHint() {
     setIsAILoading(true)
-    const result = await getHint(sessionId)
-    setIsAILoading(false)
+    try {
+      const result = await getHint(sessionId)
+      setIsAILoading(false)
 
-    if (result.success && result.hint) {
-      const hintMsg = {
-        userId: "ai-assistant",
-        text: result.hint,
-        ts: Date.now(),
-        type: "ai-hint"
+      if (result.success && result.hint) {
+        const hintMsg = {
+          userId: "ai-assistant",
+          text: result.hint,
+          ts: Date.now(),
+          type: "ai-hint"
+        }
+        setAIMessages((prev) => [...prev, hintMsg])
+      } else {
+        // Show error in AI chat
+        const errorMsg = {
+          userId: "ai-assistant",
+          text: `❌ ${result.error || "Failed to get hint. Try asking via chat instead!"}`,
+          ts: Date.now(),
+          type: "ai"
+        }
+        setAIMessages((prev) => [...prev, errorMsg])
       }
-      setAIMessages((prev) => [...prev, hintMsg])
-    } else {
-      console.error("Failed to get hint:", result.error)
+    } catch (error: any) {
+      setIsAILoading(false)
+      const errorMsg = {
+        userId: "ai-assistant",
+        text: `❌ Error: ${error.message}`,
+        ts: Date.now(),
+        type: "ai"
+      }
+      setAIMessages((prev) => [...prev, errorMsg])
     }
   }
 
   // Analyze code with AI
   async function handleAnalyzeCode() {
     setIsAILoading(true)
-    const result = await analyzeCode(sessionId)
-    setIsAILoading(false)
+    try {
+      const result = await analyzeCode(sessionId)
+      setIsAILoading(false)
 
-    if (result.success && result.analysis) {
-      const analysisMsg = {
-        userId: "ai-assistant",
-        text: result.analysis,
-        ts: Date.now(),
-        type: "ai-analysis"
+      if (result.success && result.analysis) {
+        const analysisMsg = {
+          userId: "ai-assistant",
+          text: result.analysis,
+          ts: Date.now(),
+          type: "ai-analysis"
+        }
+        setAIMessages((prev) => [...prev, analysisMsg])
+      } else {
+        // Show error in AI chat
+        const errorMsg = {
+          userId: "ai-assistant",
+          text: `❌ ${result.error || "Failed to analyze code. Try asking via chat instead!"}`,
+          ts: Date.now(),
+          type: "ai"
+        }
+        setAIMessages((prev) => [...prev, errorMsg])
       }
-      setAIMessages((prev) => [...prev, analysisMsg])
-    } else {
-      console.error("Failed to analyze code:", result.error)
+    } catch (error: any) {
+      setIsAILoading(false)
+      const errorMsg = {
+        userId: "ai-assistant",
+        text: `❌ Error: ${error.message}`,
+        ts: Date.now(),
+        type: "ai"
+      }
+      setAIMessages((prev) => [...prev, errorMsg])
     }
   }
 
