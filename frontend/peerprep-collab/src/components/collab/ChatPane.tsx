@@ -30,13 +30,9 @@ export default function ChatPane() {
 
   // Initialize WebSocket
   useEffect(() => {
-    console.log("🔌 Initializing WebSocket for session:", sessionId, "user:", userId);
     const { send } = connectCollabSocket(sessionId, userId, (msg) => {
-      console.log("📨 Message handler called, type:", msg.type);
-      
       // Handle regular chat messages
       if (msg.type === "chat:message") {
-        console.log("💬 Chat message");
         if (msg.userId !== userId) {
           setMessages((prev) => [...prev, msg]);
         }
@@ -44,24 +40,16 @@ export default function ChatPane() {
 
       // Handle AI messages from WebSocket (type can be "ai", "ai:message", "ai-hint", etc.)
       if (msg.type === "ai:message" || msg.type === "ai" || msg.type?.startsWith("ai-")) {
-        console.log("🤖 AI message received!", msg);
-        setAIMessages((prev) => {
-          console.log("Adding to AI messages, current count:", prev.length);
-          return [...prev, msg];
-        });
+        setAIMessages((prev) => [...prev, msg]);
         setIsAILoading(false);
       }
 
       // Initialize chat and AI chat history
       if (msg.type === "init") {
-        console.log("🔄 Init message");
         if (Array.isArray(msg.chat)) {
           setMessages(msg.chat);
         }
-        // Don't load old AI chat history on reconnect - start fresh
-        // if (Array.isArray(msg.aiChat)) {
-        //   setAIMessages(msg.aiChat);
-        // }
+        // Start with fresh AI chat each session
       }
     });
 
@@ -79,7 +67,6 @@ export default function ChatPane() {
   // Handle sending an AI message via WebSocket for real-time response
   function handleAISend(text: string) {
     if (!text.trim()) return
-    console.log("📤 Sending AI message:", text);
     setIsAILoading(true)
     
     // Add user message to AI chat
