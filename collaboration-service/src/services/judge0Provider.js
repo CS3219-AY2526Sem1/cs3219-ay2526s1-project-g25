@@ -43,40 +43,6 @@ function langId(language) {
   return id;
 }
 
-// export async function judge0Run({ code, language, stdin, timeoutMs }) {
-//   const payload = {
-//     language_id: langId(language),
-//     source_code: b64(code),
-//     stdin: stdin ? b64(stdin) : undefined,
-//     // Optional per-request limits depending on your Judge0 deployment:
-//     // cpu_time_limit: timeoutMs ? Math.ceil(timeoutMs/1000) : undefined,
-//   };
-
-//   // Sync submission (simple): wait=true
-//   const url = `${JUDGE0_URL}/submissions?base64_encoded=true&fields=stdout,stderr,status,exit_code,time,memory&wait=true`;
-//   const resp = await fetch(url, { method: 'POST', headers: HEADERS, body: JSON.stringify(payload) });
-//   if (!resp.ok) {
-//     const text = await resp.text().catch(() => '');
-//     throw new Error(`Judge0 ${resp.status}: ${text}`);
-//   }
-//   const data = await resp.json();
-//   const desc = data?.status?.description || '';
-
-//   const status =
-//     /Accepted|OK|Success/i.test(desc) ? 'finished' :
-//     /Time Limit Exceeded/i.test(desc) ? 'timeout' : 'error';
-
-//   return {
-//     status,                                // 'finished' | 'timeout' | 'error'
-//     stdout: fromB64(data.stdout),
-//     stderr: fromB64(data.stderr),
-//     exitCode: data.exit_code ?? undefined,
-//     time: data.time ? Number(data.time) : undefined,
-//     memory: data.memory ? Number(data.memory) : undefined,
-//     meta: { engine: 'judge0', statusDesc: desc },
-//   };
-// }
-
 export async function judge0Run({ code, language, stdin, timeoutMs }) {
   const payload = {
     language_id: langId(language),

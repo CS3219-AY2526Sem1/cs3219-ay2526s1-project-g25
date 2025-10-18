@@ -17,10 +17,6 @@ export const redisRepo = {
     await redisClient.del(key);
   },
 
-  // async pushToList(key, value) {
-  //   await redisClient.rPush(key, JSON.stringify(value));
-  // },
-
   async pushToList(key, value) {
     try {
       await redisClient.rPush(key, JSON.stringify(value));
