@@ -203,3 +203,79 @@
   transform: translateY(-1px);
 }
 
+/* Form Description */
+.form-description {
+  margin-bottom: 15px;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.form-description p {
+  margin: 0;
+}
+
+/* Password Requirements Styles */
+.password-requirements {
+  margin-top: 12px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.password-requirements p {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.password-requirements ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.password-requirements li {
+  font-size: 12px;
+  color: #6b7280;
+  padding-left: 20px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.password-requirements li::before {
+  content: '○';
+  position: absolute;
+  left: 0;
+  color: #9ca3af;
+  transition: all 0.3s ease;
+}
+
+.password-requirements li.valid {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.password-requirements li.valid::before {
+  content: '✓';
+  color: #10b981;
+  font-weight: bold;
+}
+
+/* Forgot Password Header */
+.forgot-password-header {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.forgot-password-header h2 {
+  color: #1a1a2e;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}

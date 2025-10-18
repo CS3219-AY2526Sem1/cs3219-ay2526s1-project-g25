@@ -42,6 +42,16 @@ class AuthService {
     const response = await axios.post(`${API_URL}/auth/password-reset`, { email });
     return response.data;
   }
+
+  async resetPassword(accessToken, newPassword, confirmNewPassword) {
+    const response = await axios.post(`${API_URL}/auth/password-reset/confirm`, {
+      accessToken,
+      newPassword,
+      confirmNewPassword
+    });
+    return response.data;
+  }
 }
 
-export default new AuthService();
+const authService = new AuthService();
+export default authService;

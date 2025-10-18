@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import authService from '../services/authService';
+import { validateForgotPasswordForm } from '../utils/validation';
 import toast from 'react-hot-toast';
 import './ForgotPasswordModal.css';
 
@@ -12,15 +13,9 @@ function ForgotPasswordModal({ isOpen, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!email.trim()) {
-      toast.error('Please enter your email address');
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error('Please enter a valid email address');
+    const validation = validateForgotPasswordForm(email);
+    if (!validation.isValid) {
+      toast.error(validation.message);
       return;
     }
 

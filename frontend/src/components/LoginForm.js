@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import authService from '../services/authService';
+import { validateLoginForm, getLoginErrorMessage } from '../utils/validation';
 import toast from 'react-hot-toast';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import './AuthForms.css';
@@ -15,15 +16,9 @@ function LoginForm({ onSuccess }) {
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
 
   const validate = () => {
-    const newErrors = {};
-    if (!formData.identifier.trim()) {
-      newErrors.identifier = 'Email or username is required';
-    }
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const validation = validateLoginForm(formData);
+    setErrors(validation.errors);
+    return validation.isValid;
   };
 
   const handleSubmit = async (e) => {
@@ -40,7 +35,7 @@ function LoginForm({ onSuccess }) {
       onSuccess();
     } catch (error) {
       console.error('Login error:', error);
-      const message = error.response?.data?.message || 'Login failed. Please try again.';
+      const message = getLoginErrorMessage(error);
       toast.error(message);
     } finally {
       setLoading(false);

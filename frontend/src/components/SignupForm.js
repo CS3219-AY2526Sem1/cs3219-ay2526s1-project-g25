@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import authService from '../services/authService';
+import { validateSignupForm, getSignupErrorMessage } from '../utils/validation';
 import toast from 'react-hot-toast';
 import './AuthForms.css';
 
@@ -14,46 +15,10 @@ function SignupForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const validateEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
-  const validatePassword = (password) => {
-    // At least 12 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
-    return password.length >= 12 &&
-           /[A-Z]/.test(password) &&
-           /[a-z]/.test(password) &&
-           /[0-9]/.test(password) &&
-           /[^A-Za-z0-9]/.test(password);
-  };
-
   const validate = () => {
-    const newErrors = {};
-    
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Invalid email format';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (!validatePassword(formData.password)) {
-      newErrors.password = 'Password must be at least 12 characters with uppercase, lowercase, number, and special character';
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const validation = validateSignupForm(formData);
+    setErrors(validation.errors);
+    return validation.isValid;
   };
 
   const handleSubmit = async (e) => {
@@ -70,7 +35,7 @@ function SignupForm({ onSuccess }) {
       onSuccess();
     } catch (error) {
       console.error('Signup error:', error);
-      const message = error.response?.data?.message || 'Signup failed. Please try again.';
+      const message = getSignupErrorMessage(error);
       toast.error(message);
     } finally {
       setLoading(false);
