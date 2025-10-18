@@ -65,7 +65,6 @@ export function initGateway(wss) {
 
     console.log(`[WS] ${userId} connected to ${sessionId}`);
 
-    // ✅ fixed keys
     const doc = (await redisRepo.getJson(`collab:document:${sessionId}`)) || { version: 0, text: "" };
     const chat = (await redisRepo.getList(`collab:chat:${sessionId}`)) || [];
     const aiChat = (await redisRepo.getList(`collab:ai-chat:${sessionId}`)) || [];
@@ -125,6 +124,50 @@ export function initGateway(wss) {
             cursor: msg.cursor,
           };
           broadcast(sessionId, payload, ws);
+          return;
+        }
+
+        // ---- Run Code ----
+        if (msg.type === "run:execute") {
+          try {
+            // const doc = (await redisRepo.getJson(`document:${sessionId}`)) || { text: "", version: 0 };
+            let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
+            if (!doc) doc = await redisRepo.getJson(`document:${sessionId}`);
+            if (!doc) doc = { text: "", version: 0 };
+            const language = msg.language || "javascript"; // can be 'python', 'java', etc.
+
+            // Call Judge0 directly
+            const { judge0Run } = await import("../services/judge0Provider.js");
+            const result = await judge0Run({ code: doc.text, language });
+
+            // Store run logs (optional)
+            await redisRepo.pushToList(`collab:runLogs:${sessionId}`, {
+              userId,
+              code: doc.text,
+              language,
+              output: result.stdout,
+              ts: Date.now(),
+            });
+
+            // Broadcast result to all clients in the session
+            const payload = {
+              type: "run:result",
+              run: {
+                userId,
+                language,
+                output: result.stdout,
+                error: result.stderr,
+                status: result.status,
+                time: result.time,
+                memory: result.memory,
+                ts: Date.now(),
+              },
+            };
+            broadcast(sessionId, payload, null);
+          } catch (err) {
+            console.error("[WS run:execute]", err);
+            ws.send(JSON.stringify({ type: "error", error: err.message }));
+          }
           return;
         }
 
