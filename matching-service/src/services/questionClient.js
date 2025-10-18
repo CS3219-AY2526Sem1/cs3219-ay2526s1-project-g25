@@ -1,7 +1,7 @@
 // src/services/questionClient.js
 import axios from 'axios';
 
-const BASE_URL = process.env.QUESTION_SERVICE_BASE_URL || 'http://localhost:5050';
+const BASE_URL = process.env.QUESTION_SERVICE_BASE_URL || 'http://localhost:4000';
 const TIMEOUT = Number(process.env.QUESTION_SERVICE_TIMEOUT_MS || 2000);
 
 /**

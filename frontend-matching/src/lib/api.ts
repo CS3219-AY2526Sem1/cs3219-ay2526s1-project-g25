@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getAccessToken } from "./auth";
 
-const matchBase = process.env.NEXT_PUBLIC_MATCH_BASE_URL!;
+const matchBase = process.env.NEXT_PUBLIC_MATCH_BASE_URL;
 
 export const api = axios.create({
   baseURL: matchBase,

@@ -1,6 +1,7 @@
 "use client"
 import { motion } from "framer-motion"
 import { CheckCircle2, Clock, XCircle, Users, Sparkles, ArrowRight } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function MatchStatusCard({
   phase,
@@ -13,6 +14,42 @@ export default function MatchStatusCard({
   onCancel: () => void
   timeLeft: number | null
 }) {
+  const router = useRouter()
+  const handleStartSession = () => {
+  if (!matchData?.sessionId) {
+    console.error("[MatchStatusCard] Missing sessionId:", matchData)
+    alert("No collaboration session found. Please try again.")
+    return
+  }
+
+// Construct target URL using env and query params
+const baseUrl =
+  process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:4000";
+
+// ✅ Prefer authenticated userId from JWT (fallback to matchData.userId)
+const token = localStorage.getItem("accessToken");
+let userIdFromToken: string | null = null;
+try {
+  if (token) {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    userIdFromToken = String(payload.userId);
+  }
+} catch (err) {
+  console.warn("[MatchStatusCard] Failed to parse token:", err);
+}
+
+const finalUserId = userIdFromToken || matchData.userId || "guest";
+
+// ✅ Always ensure both parameters exist
+const collabUrl = `${baseUrl.replace(/\/$/, "")}/collab?sessionId=${
+  matchData.sessionId
+}&userId=${finalUserId}`;
+
+console.log(`[MatchStatusCard] Redirecting to: ${collabUrl}`);
+router.push(collabUrl);
+
+}
+
   if (phase === "searching") {
     return (
       <motion.div
@@ -280,7 +317,7 @@ export default function MatchStatusCard({
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
           >
-            <button className="group px-10 py-4 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-xl font-bold text-lg hover:from-purple-500 hover:to-purple-400 transition-all duration-300 shadow-xl shadow-purple-500/50 hover:shadow-2xl hover:shadow-purple-500/60 hover:scale-105 flex items-center gap-2">
+            <button onClick={handleStartSession} className="group px-10 py-4 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-xl font-bold text-lg hover:from-purple-500 hover:to-purple-400 transition-all duration-300 shadow-xl shadow-purple-500/50 hover:shadow-2xl hover:shadow-purple-500/60 hover:scale-105 flex items-center gap-2">
               Start Coding Session
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
