@@ -31,23 +31,61 @@ export class MatchQueue {
   }
 
   /*───────────────────────────────────────────────*/
-  async getStatus(userId) {
-    const w = await redisClient.hGetAll(`waiter:${userId}`);
-    if (!w || !w.status) return { status: "NOT_FOUND" };
+async getStatus(userId) {
+  const waiter = await redisClient.hGetAll(`waiter:${userId}`);
+  if (!waiter || !waiter.status) return { status: "NOT_FOUND" };
 
-    if (w.status === "MATCHED") {
-      const match = await redisClient.hGetAll(`match:${w.matchId}`);
-      if (match.question) match.question = JSON.parse(match.question);
-      return { status: "MATCHED", match };
-    }
-
+  // 💡 Return queue info if still waiting
+  if (waiter.status !== "MATCHED") {
     return {
-      status: w.status,
+      status: waiter.status,
       userId,
-      enqueueAt: Number(w.enqueueAt || 0),
-      expiresAt: Number(w.enqueueAt || 0) + this.matchTimeoutMs,
+      enqueueAt: Number(waiter.enqueueAt || 0),
+      expiresAt: Number(waiter.enqueueAt || 0) + this.matchTimeoutMs,
     };
   }
+
+  // 🟢 Get match details
+  const rawMatch = await redisClient.hGetAll(`match:${waiter.matchId}`);
+  if (!rawMatch || Object.keys(rawMatch).length === 0) {
+    return { status: "NOT_FOUND" };
+  }
+
+  // Parse question JSON safely
+  let question = {};
+  try {
+    question = JSON.parse(rawMatch.question || "{}");
+  } catch {}
+
+  // Retry once for sessionId if missing (to avoid race)
+  let sessionId = rawMatch.sessionId || "";
+  if (!sessionId) {
+    await new Promise((r) => setTimeout(r, 200));
+    const re = await redisClient.hGetAll(`match:${waiter.matchId}`);
+    sessionId = re.sessionId || "";
+  }
+
+  // Determine user identity cleanly
+  const isUserA = String(userId) === rawMatch.userA;
+  const currentUserId = isUserA ? rawMatch.userA : rawMatch.userB;
+  const partnerId = isUserA ? rawMatch.userB : rawMatch.userA;
+
+  // ✅ Return fully personalized payload
+  return {
+    status: "MATCHED",
+    match: {
+      matchId: rawMatch.matchId,
+      topic: rawMatch.topic,
+      difficulty: rawMatch.difficulty,
+      createdAt: rawMatch.createdAt,
+      sessionId,
+      userId: currentUserId,
+      partnerId,
+      question,
+    },
+  };
+}
+
 
   /*───────────────────────────────────────────────*/
   async handleDisconnect({ matchId, remainingUserId, action }) {
@@ -201,63 +239,104 @@ export class MatchQueue {
   /*───────────────────────────────────────────────
    *  Finalize match
    *───────────────────────────────────────────────*/
-  async _finalizePair({ a, b, topic, difficulty }) {
-    const matchId = genId();
-    const createdAt = nowMs();
-    const handshakeExpiresAt = createdAt + this.handshakeTtlMs;
-    const match = {
-      matchId,
-      userA: a.userId,
-      userB: b.userId,
-      topic,
+  /*───────────────────────────────────────────────
+ *  Finalize match
+ *───────────────────────────────────────────────*/
+async _finalizePair({ a, b, topic, difficulty }) {
+  const matchId = genId();
+  const createdAt = nowMs();
+  const handshakeExpiresAt = createdAt + this.handshakeTtlMs;
+
+  // Base match metadata
+  const match = {
+    matchId,
+    userA: a.userId,
+    userB: b.userId,
+    topic,
+    difficulty,
+    createdAt: createdAt.toString(),
+    handshakeExpiresAt: handshakeExpiresAt.toString(),
+    handshaked: "true",
+    closed: "false",
+  };
+
+  /* ───────────────────────────────
+   *  1️⃣ Fetch question (safe fallback)
+   * ─────────────────────────────── */
+  try {
+    match.question = await fetchRandomQuestion({ topic, difficulty });
+  } catch {
+    match.question = {
+      id: `mock-${topic}-${difficulty}`,
+      title: `Mock ${difficulty} ${topic} Question`,
+      description: "This is a mock question for testing",
       difficulty,
-      createdAt: createdAt.toString(),
-      handshakeExpiresAt: handshakeExpiresAt.toString(),
-      handshaked: "true",
-      closed: "false",
+      topic,
     };
+  }
 
-    try {
-      match.question = await fetchRandomQuestion({ topic, difficulty });
-    } catch {
-      match.question = {
-        id: `mock-${topic}-${difficulty}`,
-        title: `Mock ${difficulty} ${topic} Question`,
-        description: "This is a mock question for testing",
-        difficulty,
-        topic,
-      };
-    }
-
-    await redisClient.hSet(`match:${matchId}`, {
-      ...match,
-      question: JSON.stringify(match.question),
-    });
-    await redisClient.expire(`match:${matchId}`, 180);
-
-    await redisClient.hSet(`waiter:${a.userId}`, { status: "MATCHED", matchId });
-    await redisClient.hSet(`waiter:${b.userId}`, { status: "MATCHED", matchId });
-
-    await this._removeFromAllQueues(a);
-    await this._removeFromAllQueues(b);
-
-    console.log(`[match] Matched ${a.userId} ↔ ${b.userId} on ${topic} (${difficulty})`);
-    
-    try {
-    const response = await axios.post(`${COLLAB_SERVICE_BASE_URL}/sessions`, {
+  /* ───────────────────────────────
+   *  2️⃣ Create collaboration session
+   *      BEFORE marking users matched
+   * ─────────────────────────────── */
+  let sessionId = "";
+  try {
+    const res = await axios.post(`${COLLAB_SERVICE_BASE_URL}/sessions`, {
       userA: a.userId,
       userB: b.userId,
       topic,
       difficulty,
       questionId: match.question.id,
     });
-      console.log(`[collab] Session created: ${response.data.id}`);
-    } catch (err) {
-      console.error("[collab] Failed to create session:", err.message);
-    }
-
-    return { status: "matched", match };
+    sessionId = res.data?.id || "";
+    console.log(`[collab] Session created: ${sessionId}`);
+  } catch (err) {
+    console.error("[collab] Failed to create session:", err.message);
   }
+
+  /* ───────────────────────────────
+   *  3️⃣ Save match record atomically
+   *      with sessionId already set
+   * ─────────────────────────────── */
+  const redisMatch = {
+    ...match,
+    sessionId,
+    question: JSON.stringify(match.question),
+  };
+
+  await redisClient.hSet(`match:${matchId}`, redisMatch);
+  await redisClient.expire(`match:${matchId}`, 180);
+
+  /* ───────────────────────────────
+   *  4️⃣ Remove users from queues
+   * ─────────────────────────────── */
+  await this._removeFromAllQueues(a);
+  await this._removeFromAllQueues(b);
+
+  /* ───────────────────────────────
+   *  5️⃣ Mark users as MATCHED
+   * ─────────────────────────────── */
+  await redisClient.hSet(`waiter:${a.userId}`, { status: "MATCHED", matchId });
+  await redisClient.hSet(`waiter:${b.userId}`, { status: "MATCHED", matchId });
+
+  console.log(
+    `[match] ✅ Matched ${a.userId} ↔ ${b.userId} on ${topic} (${difficulty}), session ${sessionId}`
+  );
+
+  /* ───────────────────────────────
+   *  6️⃣ Return complete match payload
+   * ─────────────────────────────── */
+  return {
+    status: "matched",
+    match: {
+      ...match,
+      sessionId,
+    },
+  };
+}
+
+
+
 
   /*───────────────────────────────────────────────
    * Background fallback scheduler
