@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -43,6 +44,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />

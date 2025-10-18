@@ -10,12 +10,32 @@ class AuthService {
 
   async login(credentials) {
     const response = await axios.post(`${API_URL}/auth/login`, credentials);
+    
     if (response.data.accessToken) {
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.data.user));
     }
+    
     return response.data;
+  }
+
+  async refreshAccessToken() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+      const { accessToken } = response.data;
+      localStorage.setItem('accessToken', accessToken);
+      return accessToken;
+    } catch (error) {
+      // If refresh fails, clear all tokens
+      this.logout();
+      throw error;
+    }
   }
 
   logout() {

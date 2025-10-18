@@ -50,6 +50,51 @@
   font-weight: 500;
 }
 
+.show-password-group {
+  display: flex;
+  align-items: center;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.checkbox-label:hover {
+  color: #667eea;
+}
+
+.checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: #667eea;
+  transition: all 0.2s ease;
+  border-radius: 3px;
+}
+
+.checkbox-label input[type="checkbox"]:hover {
+  transform: scale(1.05);
+}
+
+.checkbox-label input[type="checkbox"]:focus {
+  outline: 2px solid rgba(102, 126, 234, 0.3);
+  outline-offset: 2px;
+}
+
+.checkbox-label span {
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 .submit-button {
   margin-top: 10px;
   padding: 16px;

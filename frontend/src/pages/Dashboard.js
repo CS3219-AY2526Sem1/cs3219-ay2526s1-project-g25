@@ -83,6 +83,15 @@ function Dashboard() {
             <p>Manage your account settings</p>
             <button className="card-button">Edit Profile</button>
           </div>
+
+          {user?.roles?.includes('admin') && (
+            <div className="dashboard-card admin-card">
+              <div className="card-icon">⚙️</div>
+              <h3>Admin Panel</h3>
+              <p>Manage questions and users</p>
+              <button className="card-button" onClick={() => navigate('/admin')}>Open Admin Panel</button>
+            </div>
+          )}
         </div>
       </div>
     </div>

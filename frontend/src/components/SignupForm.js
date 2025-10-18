@@ -14,6 +14,7 @@ function SignupForm({ onSuccess }) {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     const validation = validateSignupForm(formData);
@@ -45,8 +46,8 @@ function SignupForm({ onSuccess }) {
   const formFields = [
     { id: 'username', label: 'Username', type: 'text', placeholder: 'Choose a username' },
     { id: 'email', label: 'Email', type: 'email', placeholder: 'your.email@example.com' },
-    { id: 'password', label: 'Password', type: 'password', placeholder: 'Create a strong password' },
-    { id: 'confirmPassword', label: 'Confirm Password', type: 'password', placeholder: 'Confirm your password' }
+    { id: 'password', label: 'Password', type: showPassword ? 'text' : 'password', placeholder: 'Create a strong password' },
+    { id: 'confirmPassword', label: 'Confirm Password', type: showPassword ? 'text' : 'password', placeholder: 'Confirm your password' }
   ];
 
   return (
@@ -76,13 +77,29 @@ function SignupForm({ onSuccess }) {
         </motion.div>
       ))}
 
+      <motion.div 
+        className="show-password-group"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+      >
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={showPassword}
+            onChange={(e) => setShowPassword(e.target.checked)}
+          />
+          <span>Show password</span>
+        </label>
+      </motion.div>
+
       <motion.button 
         type="submit" 
         className="submit-button" 
         disabled={loading}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.6 }}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
