@@ -14,6 +14,7 @@ const origins = (process.env.CORS_ORIGIN || '').split(',');
 app.use(cors({ origin: origins, credentials: true }));
 app.use(express.json())
 app.use(cookieParser())
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
 app.use('/auth', authRoutes)
 app.use('/users', userRoutes)
