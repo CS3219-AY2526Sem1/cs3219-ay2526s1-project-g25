@@ -28,7 +28,7 @@ function getConversationHistory(sessionId) {
  */
 export async function generateAIResponse(sessionId, userMessage, context = {}) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     
     // Build system context
     let systemContext = `You are an AI coding assistant helping two users collaborate on solving interview coding problems in real-time. 
@@ -101,7 +101,7 @@ IMPORTANT GUIDELINES:
  */
 export async function analyzeCode(sessionId, code, language) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     const prompt = `Analyze the following ${language} code and provide:
 1. Code quality assessment (1-10)
@@ -146,7 +146,7 @@ Please provide your analysis in a structured, concise format.`;
  */
 export async function getHint(sessionId, question, currentCode = "") {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     let prompt = `Provide a helpful hint (not the complete solution) for this coding problem:
 
@@ -181,7 +181,7 @@ DIFFICULTY: ${question.difficulty}
  */
 export async function debugError(sessionId, code, error, language) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     const prompt = `Help debug this ${language} code that's producing an error:
 
@@ -225,7 +225,7 @@ export function clearConversationHistory(sessionId) {
  */
 export async function explainConcept(concept, language = "general") {
   try {
-    const model = genAI.getGenerativeAI({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     const prompt = `Explain the concept of "${concept}" in the context of ${language} programming.
 Provide a clear, concise explanation with a simple code example if applicable.
