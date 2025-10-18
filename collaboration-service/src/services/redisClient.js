@@ -5,10 +5,12 @@ dotenv.config();
 
 const redisUrl = process.env.REDIS_URL;
 
+// Try without TLS first for Redis Cloud
 export const redisClient = createClient({
   url: redisUrl,
   socket: {
-    tls: redisUrl.startsWith('rediss://'), // enable TLS for Upstash
+    tls: false, // Disable TLS - Redis Cloud sometimes doesn't need it
+    rejectUnauthorized: false,
   },
 });
 
