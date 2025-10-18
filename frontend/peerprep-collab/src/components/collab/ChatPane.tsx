@@ -40,6 +40,7 @@ export default function ChatPane() {
 
       // Handle AI messages from WebSocket
       if (msg.type === "ai:message") {
+        console.log("✅ Received AI message:", msg);
         setAIMessages((prev) => [...prev, msg]);
         setIsAILoading(false);
       }
@@ -69,6 +70,7 @@ export default function ChatPane() {
   // Handle sending an AI message via WebSocket for real-time response
   function handleAISend(text: string) {
     if (!text.trim()) return
+    console.log("📤 Sending AI message:", text);
     setIsAILoading(true)
     
     // Add user message to AI chat
