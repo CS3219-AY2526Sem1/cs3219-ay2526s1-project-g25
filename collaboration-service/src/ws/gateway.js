@@ -77,27 +77,6 @@ export function initGateway(wss) {
         const msg = JSON.parse(buf.toString());
 
         // ---- Document Operation ----
-        // if (msg.type === "doc:op") {
-        //   const parsed = docOpSchema.safeParse(msg.op);
-        //   if (!parsed.success)
-        //     return ws.send(JSON.stringify({ type: "error", error: parsed.error.issues }));
-
-        //   const liveDoc =
-        //     (await redisRepo.getJson(`collab:document:${sessionId}`)) || { version: 0, text: "" };
-
-        //   if (parsed.data.version !== liveDoc.version) {
-        //     return ws.send(JSON.stringify({ type: "doc:resync", document: liveDoc }));
-        //   }
-
-        //   const updatedDoc = applyOp(liveDoc, parsed.data);
-        //   await redisRepo.setJson(`collab:document:${sessionId}`, updatedDoc);
-
-        //   const payload = { type: "doc:applied", document: updatedDoc, op: parsed.data, by: userId };
-        //   broadcast(sessionId, payload, ws);
-        //   ws.send(JSON.stringify(payload));
-        //   return;
-        // }
-
         if (msg.type === "doc:op") {
           const parsed = docOpSchema.safeParse(msg.op);
           if (!parsed.success) {
@@ -134,15 +113,6 @@ export function initGateway(wss) {
         }
 
         // ---- Cursor Update ----
-        // if (msg.type === "cursor:update") {
-        //   const p = (await redisRepo.getJson(`collab:presence:${sessionId}`)) || {};
-        //   touchPresence(p, userId, msg.cursor);
-        //   await redisRepo.setJson(`collab:presence:${sessionId}`, p);
-
-        //   const payload = { type: "cursor:update", userId, cursor: msg.cursor };
-        //   broadcast(sessionId, payload, ws);
-        //   return;
-        // }
         if (msg.type === "cursor:update") {
           const p =
             (await redisRepo.getJson(`collab:presence:${sessionId}`)) || {};
