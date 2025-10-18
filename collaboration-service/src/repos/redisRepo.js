@@ -17,8 +17,24 @@ export const redisRepo = {
     await redisClient.del(key);
   },
 
+  // async pushToList(key, value) {
+  //   await redisClient.rPush(key, JSON.stringify(value));
+  // },
+
   async pushToList(key, value) {
-    await redisClient.rPush(key, JSON.stringify(value));
+    try {
+      await redisClient.rPush(key, JSON.stringify(value));
+    } catch (e) {
+      // If the key already exists with a different type, reset it to a list
+      if (e?.message?.includes("WRONGTYPE")) {
+        const t = await redisClient.type(key);
+        console.warn(`[redisRepo.pushToList] WRONGTYPE for ${key} (type=${t}). Resetting key.`);
+        await redisClient.del(key);
+        await redisClient.rPush(key, JSON.stringify(value));
+      } else {
+        throw e;
+      }
+    }
   },
 
   async getList(key) {

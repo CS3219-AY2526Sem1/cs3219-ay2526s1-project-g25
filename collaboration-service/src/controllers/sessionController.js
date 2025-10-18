@@ -3,6 +3,7 @@ import { createSession as makeSession } from "../services/sessionService.js";
 import { redisRepo } from "../repos/redisRepo.js";
 import { runOnce } from "../services/executionService.js";
 import { broadcast } from "../ws/gateway.js";
+import { redisClient } from "../services/redisClient.js";
 
 /**
  * Validation schema for session creation
@@ -135,6 +136,12 @@ export const execute = async (req, res) => {
 
     const logKey = `collab:runLogs:${s.id}`;
     const prevLogs = (await redisRepo.getList(logKey)) || [];
+
+    // TEMP debug: see what Redis thinks this key is
+    try {
+      const t = await redisClient.type(logKey);
+      console.log(`[execute] Redis type for ${logKey}: ${t}`);
+    } catch {}
 
     const { busy, run } = await runOnce(
       s.id,

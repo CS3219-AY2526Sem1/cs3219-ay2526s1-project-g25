@@ -2,6 +2,7 @@
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
+import 'dotenv/config';
 import app from './app.js';
 import { initGateway } from './ws/gateway.js';
 import "./services/redisClient.js";
