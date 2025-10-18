@@ -401,3 +401,139 @@
   line-height: 1.6;
   margin-bottom: 10px;
 }
+
+/* Verification Page Styles */
+.verification-card {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.verification-container {
+  text-align: center;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.verification-icon {
+  font-size: 72px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+}
+
+.verification-icon.loading {
+  font-size: 48px;
+}
+
+.verification-icon.success {
+  color: #10b981;
+  filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.3));
+}
+
+.verification-icon.error {
+  color: #ef4444;
+  filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.3));
+}
+
+.verification-container h2 {
+  color: #1a1a2e;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.verification-container.success h2 {
+  color: #10b981;
+}
+
+.verification-container.error h2 {
+  color: #ef4444;
+}
+
+.verification-container p {
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.verification-subtitle {
+  font-size: 14px !important;
+  color: #9ca3af !important;
+  margin-bottom: 24px !important;
+}
+
+.verification-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.verification-button {
+  padding: 16px 32px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  display: inline-block;
+  min-width: 200px;
+}
+
+.verification-button.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 
+    0 4px 12px rgba(102, 126, 234, 0.3),
+    0 0 0 0 rgba(102, 126, 234, 0.5);
+}
+
+.verification-button.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 20px rgba(102, 126, 234, 0.4),
+    0 0 40px rgba(102, 126, 234, 0.3);
+}
+
+.verification-button.secondary {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.verification-button.secondary:hover {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .verification-container {
+    padding: 15px;
+  }
+  
+  .verification-icon {
+    font-size: 56px;
+    height: 80px;
+  }
+  
+  .verification-container h2 {
+    font-size: 24px;
+  }
+  
+  .verification-actions {
+    flex-direction: column;
+  }
+  
+  .verification-button {
+    width: 100%;
+  }
+}

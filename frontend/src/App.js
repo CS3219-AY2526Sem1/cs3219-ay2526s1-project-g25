@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import VerificationPage from './pages/VerificationPage';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -39,6 +40,7 @@ function App() {
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/auth/verify" element={<VerificationPage />} />
           <Route
             path="/dashboard"
             element={
