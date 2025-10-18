@@ -35,6 +35,31 @@ export function initGateway(wss) {
       return ws.close(1008, "missing params");
     }
 
+    // Authorization check
+    try {
+      const allowed = await redisRepo.sIsMember(
+        `collab:session:${sessionId}:participants`,
+        userId
+      );
+
+      if (!allowed) {
+        // Fallback: if the set doesn’t exist yet, fall back to session record
+        const s = await redisRepo.getJson(`collab:session:${sessionId}`);
+        const fallback =
+          s && (userId === s.userA || userId === s.userB);
+
+        if (!fallback) {
+          console.warn(
+            `[WS] denied join: user=${userId} not in session:${sessionId} participants`
+          );
+          return ws.close(1008, "unauthorized");
+        }
+      }
+    } catch (err) {
+      console.error("[WS] auth check failed:", err);
+      return ws.close(1011, "auth check error");
+    }
+
     if (!wsRooms.has(sessionId)) wsRooms.set(sessionId, new Set());
     wsRooms.get(sessionId).add(ws);
 
@@ -79,7 +104,7 @@ export function initGateway(wss) {
             return ws.send(JSON.stringify({ type: "error", error: parsed.error.issues }));
           }
 
-          const raw = (await redisRepo.getJson(`document:${sessionId}`)) || {};
+          const raw = (await redisRepo.getJson(`collab:document:${sessionId}`)) || {};
           const liveDoc = {
             text: typeof raw.text === "string" ? raw.text : "",
             version: Number(raw.version ?? 0),
@@ -94,7 +119,7 @@ export function initGateway(wss) {
 
           // apply locally (pure) and persist exactly once
           const updatedDoc = applyOp(liveDoc, parsed.data);
-          await redisRepo.setJson(`document:${sessionId}`, updatedDoc);
+          await redisRepo.setJson(`collab:document:${sessionId}`, updatedDoc);
 
           const payload = {
             type: "doc:applied",
@@ -120,9 +145,9 @@ export function initGateway(wss) {
         // }
         if (msg.type === "cursor:update") {
           const p =
-            (await redisRepo.getJson(`presence:${sessionId}`)) || {};
+            (await redisRepo.getJson(`collab:presence:${sessionId}`)) || {};
           touchPresence(p, userId, msg.cursor);
-          await redisRepo.setJson(`presence:${sessionId}`, p);
+          await redisRepo.setJson(`collab:presence:${sessionId}`, p);
 
           const payload = {
             type: "cursor:update",

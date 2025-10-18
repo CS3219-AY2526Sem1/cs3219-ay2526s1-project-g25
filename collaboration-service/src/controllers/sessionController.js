@@ -31,6 +31,13 @@ export const createSession = async (req, res) => {
     const s = await makeSession(parsed.data);
     console.log("Created session:", s);
 
+    // Store allowed participants for authorization
+    await redisRepo.sAdd(
+      `collab:session:${s.id}:participants`,
+      s.userA,
+      s.userB
+    );
+
     return res.status(201).json(s);
   } catch (e) {
     console.error("[createSession] Error:", e);
