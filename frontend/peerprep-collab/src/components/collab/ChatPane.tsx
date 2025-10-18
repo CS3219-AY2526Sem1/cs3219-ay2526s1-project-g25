@@ -30,9 +30,13 @@ export default function ChatPane() {
 
   // Initialize WebSocket
   useEffect(() => {
+    console.log("🔌 Initializing WebSocket for session:", sessionId, "user:", userId);
     const { send } = connectCollabSocket(sessionId, userId, (msg) => {
+      console.log("📨 Message handler called, type:", msg.type);
+      
       // Handle regular chat messages
       if (msg.type === "chat:message") {
+        console.log("💬 Chat message");
         if (msg.userId !== userId) {
           setMessages((prev) => [...prev, msg]);
         }
@@ -40,13 +44,17 @@ export default function ChatPane() {
 
       // Handle AI messages from WebSocket
       if (msg.type === "ai:message") {
-        console.log("✅ Received AI message:", msg);
-        setAIMessages((prev) => [...prev, msg]);
+        console.log("🤖 AI message received!", msg);
+        setAIMessages((prev) => {
+          console.log("Adding to AI messages, current count:", prev.length);
+          return [...prev, msg];
+        });
         setIsAILoading(false);
       }
 
       // Initialize chat and AI chat history
       if (msg.type === "init") {
+        console.log("🔄 Init message");
         if (Array.isArray(msg.chat)) {
           setMessages(msg.chat);
         }
