@@ -5,27 +5,22 @@ import cors from "cors";
 import matchRouter from './routes/match.js';
 import { MatchQueue } from './services/matchQueue.js';
 import { initController } from './controllers/matchController.js';
-import { redisClient } from './services/redisClient.js'; // NEW import
+import { redisClient } from './services/redisClient.js'; // Already connects itself
 
 const app = express();
+
 // --- CORS setup ---
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3002"
-];
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://localhost:4000", "http://localhost:4002"],
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 
-// Ensure Redis connects before starting the service
 async function startServer() {
   try {
-    await redisClient.connect();
-    console.log('[Redis] Connected successfully');
-
-    // Instantiate queue with Redis-backed implementation
+    // No need to reconnect here
     const queue = new MatchQueue({
       matchTimeoutMs: Number(process.env.MATCH_TIMEOUT_MS || 120000),
       queueRecalcMs: Number(process.env.QUEUE_RECALC_MS || 5000),
@@ -35,10 +30,7 @@ async function startServer() {
 
     initController(queue);
 
-    // Health route
     app.get('/health', (req, res) => res.json({ status: 'ok' }));
-
-    // Routes
     app.use('/match', matchRouter);
 
     const port = process.env.PORT || 4001;
@@ -46,7 +38,6 @@ async function startServer() {
       console.log(`Matching service listening on port ${port}`);
     });
 
-    // Graceful shutdown for Redis and HTTP server
     process.on('SIGINT', async () => {
       console.log('\n[Server] Shutting down...');
       await redisClient.quit();
@@ -55,7 +46,6 @@ async function startServer() {
         process.exit(0);
       });
     });
-
   } catch (err) {
     console.error('[Startup Error]', err);
     process.exit(1);
