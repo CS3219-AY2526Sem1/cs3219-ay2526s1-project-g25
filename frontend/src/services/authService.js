@@ -33,15 +33,28 @@ class AuthService {
       return accessToken;
     } catch (error) {
       // If refresh fails, clear all tokens
-      this.logout();
+      await this.logout();
       throw error;
     }
   }
 
-  logout() {
+  async logout() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    // Clear local storage first
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    
+    // If we have a refresh token, send it to backend to invalidate
+    if (refreshToken) {
+      try {
+        await axios.post(`${API_URL}/auth/logout`, { refreshToken });
+      } catch (error) {
+        // Log error but don't throw - local logout already succeeded
+        console.warn('Backend logout failed:', error);
+      }
+    }
   }
 
   getCurrentUser() {
