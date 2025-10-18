@@ -44,7 +44,7 @@ export default function AIChatBubble({ children, type = "ai" }: AIChatBubbleProp
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="w-full flex justify-start"
     >
-      <div className={`relative px-4 py-3 ${getGradient()} border rounded-2xl max-w-[85%] shadow-lg backdrop-blur-sm`}>
+      <div className={`relative px-4 py-3 ${getGradient()} border rounded-2xl max-w-[85%] shadow-lg backdrop-blur-sm overflow-hidden`}>
         {/* AI Badge */}
         <div className="flex items-center gap-2 mb-2">
           {getIcon()}
@@ -60,10 +60,10 @@ export default function AIChatBubble({ children, type = "ai" }: AIChatBubbleProp
         </div>
 
         {/* Message Content */}
-        <div className="text-slate-100 text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
+        <div className="text-slate-100 text-sm leading-relaxed prose prose-invert prose-sm max-w-none overflow-hidden">
           {/* Support for formatted text - split by line breaks and code blocks */}
           {typeof children === "string" ? (
-            <div className="whitespace-pre-wrap">{children}</div>
+            <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{children}</div>
           ) : (
             children
           )}

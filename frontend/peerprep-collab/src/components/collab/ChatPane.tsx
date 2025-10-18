@@ -42,8 +42,8 @@ export default function ChatPane() {
         }
       }
 
-      // Handle AI messages from WebSocket
-      if (msg.type === "ai:message") {
+      // Handle AI messages from WebSocket (type can be "ai", "ai:message", "ai-hint", etc.)
+      if (msg.type === "ai:message" || msg.type === "ai" || msg.type?.startsWith("ai-")) {
         console.log("🤖 AI message received!", msg);
         setAIMessages((prev) => {
           console.log("Adding to AI messages, current count:", prev.length);
@@ -58,9 +58,10 @@ export default function ChatPane() {
         if (Array.isArray(msg.chat)) {
           setMessages(msg.chat);
         }
-        if (Array.isArray(msg.aiChat)) {
-          setAIMessages(msg.aiChat);
-        }
+        // Don't load old AI chat history on reconnect - start fresh
+        // if (Array.isArray(msg.aiChat)) {
+        //   setAIMessages(msg.aiChat);
+        // }
       }
     });
 
