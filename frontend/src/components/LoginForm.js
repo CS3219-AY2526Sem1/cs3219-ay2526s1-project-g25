@@ -13,6 +13,7 @@ function LoginForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     const newErrors = {};
@@ -80,7 +81,7 @@ function LoginForm({ onSuccess }) {
         >
           <label htmlFor="password">Password</label>
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             id="password"
             value={formData.password}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -94,13 +95,29 @@ function LoginForm({ onSuccess }) {
           >{errors.password}</motion.span>}
         </motion.div>
 
+        <motion.div 
+          className="show-password-group"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={showPassword}
+              onChange={(e) => setShowPassword(e.target.checked)}
+            />
+            <span>Show password</span>
+          </label>
+        </motion.div>
+
         <motion.button 
           type="submit" 
           className="submit-button" 
           disabled={loading}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
@@ -118,7 +135,7 @@ function LoginForm({ onSuccess }) {
           className="form-links"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.5 }}
         >
           <motion.button 
             type="button" 
