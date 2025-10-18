@@ -96,8 +96,6 @@ export function initGateway(wss) {
         // ---- AI Chat Message ----
         if (msg.type === "ai:message") {
           try {
-            console.log("[AI] Received request:", msg.text);
-            
             // Get current session data for context
             const session = await redisRepo.getJson(`collab:session:${sessionId}`);
             const doc = await redisRepo.getJson(`collab:document:${sessionId}`);
@@ -118,10 +116,8 @@ export function initGateway(wss) {
               };
             }
 
-            console.log("[AI] Generating response...");
             // Generate AI response
             const aiResponse = await generateAIResponse(sessionId, msg.text, context);
-            console.log("[AI] Response generated:", aiResponse.substring(0, 50) + "...");
 
             // Store AI message
             const aiMsg = {
@@ -134,9 +130,7 @@ export function initGateway(wss) {
 
             // Broadcast AI response to all users in the session
             const payload = { type: "ai:message", ...aiMsg };
-            console.log("[AI] Broadcasting response to session:", sessionId);
             broadcast(sessionId, payload, null);
-            console.log("[AI] ✅ Response sent successfully");
             return;
           } catch (error) {
             console.error("[WS Gateway] AI message error:", error);
