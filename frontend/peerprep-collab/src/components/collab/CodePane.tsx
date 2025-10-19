@@ -7,6 +7,7 @@ import { executeCode } from "@/lib/collabApi";
 import { useCollabStore } from "@/lib/collabStore";
 import { getParams } from "@/lib/helpers";
 import {connectCollabSocket} from "@/lib/collabSocket";
+import { diffChars } from "diff";
 
 // Returns the diff index between two strings, used for updating text via websocket.
 function findDiffIndex(str1: string, str2: string): number {
@@ -17,6 +18,7 @@ function findDiffIndex(str1: string, str2: string): number {
 
 export default function CodePane() {
     const [language, setLanguage] = useState("python");
+    const [isDocInitialized, setDocInitialized] = useState(false);
     const [code, setCode] = useState("");
     const [docVersion, setDocVersion] = useState(0);
     const [sendMsg, setSendMsg] = useState<(data: any) => void>(() => () => {})
@@ -36,11 +38,17 @@ export default function CodePane() {
         setCode(boilerplates[language]);
 
         const { send } = connectCollabSocket(sessionId, userId, (msg) => {
-            console.log(msg);
+            if (isDocInitialized) { return; }
+
             // We don't need to reload the entire textarea if the change is caused by us.
             if (msg?.by === userId) { return; }
+
+            if (msg.type === "init") {
+                setCode(msg.document.text);
+                setDocVersion(msg.document.version);
+            }
+
             if (msg.type === "doc:applied" || msg.type === "doc:resync") {
-                console.log("CCC");
                 setCode(msg.document.text);
                 setDocVersion(msg.document.version);
             }
@@ -59,29 +67,53 @@ export default function CodePane() {
     const handleCodeChanged = (e) => {
         const codeTextarea = e.target;
 
-        console.log("code changed!")
-        console.log(getCaretPosition(codeTextarea));
-        sendMsg({
-            "type": "doc:op",
-            "op": {
-                "type": "insert",
-                "index": 0,
-                "text": "HELLO",
-                "version": docVersion
+        // Compare the diff between the old text and the new text.
+        var oldCode = code;
+        var newCode = e.target.value;
+
+        const diffs = diffChars(oldCode, newCode);
+
+        // Keeps track of the current index of the diff objects we are iterating over.
+        let currentIndex = 0;
+        diffs.forEach((el: ChangeObject<string>, index: number) => {
+            if (!el.removed && !el.added) {
+                currentIndex += el.count;
+                return;
             }
-        });
 
-        // TODO: Insert text only for now.
-        //const newText = e.target.value;
-        //const oldText = collabRef?.current?.getText() || "";
+            if (el.added) {
+                sendMsg({
+                    "type": "doc:op",
+                    "op": {
+                        "type": "insert",
+                        "index": currentIndex,
+                        "text": el.value,
+                        "version": docVersion
+                    }
+                });
+                currentIndex += el.count;
 
-        //// Find diff index (naively)
-        //const diffIndex = findDiffIndex(oldText, newText);
-        //const insertedText = newText.slice(diffIndex, diffIndex + (newText.length - oldText.length));
+                setDocVersion((docVersion) => docVersion + 1);
+                return;
+            }
 
-        //const currentVersionNumber = (collabRef?.current?.getVersion() || 0);
+            if (el.removed) {
+                sendMsg({
+                    "type": "doc:op",
+                    "op": {
+                        "type": "delete",
+                        "index": currentIndex,
+                        "length": el.count,
+                        "version": docVersion
+                    }
+                });
+
+                setDocVersion((docVersion) => docVersion + 1);
+                return;
+            }
+        })
+
         setCode(e.target.value);
-        setDocVersion((docVersion) => docVersion + 1);
     }
 
     async function handleRun() {
