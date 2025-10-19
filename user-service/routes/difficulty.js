@@ -1,5 +1,5 @@
 import express from 'express'
-import { authenticateToken } from '../middleware/auth.js'
+import { requireAuth } from '../middleware/auth.js'
 import { 
   markQuestionSolved, 
   getMyDifficultyCounts, 
@@ -10,7 +10,7 @@ import {
 const router = express.Router()
 
 // All difficulty routes require authentication
-router.use(authenticateToken)
+router.use(requireAuth)
 
 /**
  * @route   POST /api/difficulty/solve
