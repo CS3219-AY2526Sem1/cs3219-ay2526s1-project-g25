@@ -5,7 +5,7 @@ import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import VerificationPage from './pages/VerificationPage';
-import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
+
 import AdminDashboard from './pages/AdminDashboard';
 import UserProfile from './pages/UserProfile';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -43,7 +43,7 @@ function App() {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
           <Route path="/auth/verify" element={<VerificationPage />} />
-          <Route path="/auth/verify-email-change" element={<EmailChangeVerificationPage />} />
+
           <Route
             path="/dashboard"
             element={

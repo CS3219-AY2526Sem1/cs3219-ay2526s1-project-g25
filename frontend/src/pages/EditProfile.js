@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import authService from '../services/authService';
-import { validateEmail, validatePassword } from '../utils/validation';
+import { validatePassword } from '../utils/validation';
 import toast from 'react-hot-toast';
 import './Profile.css';
 
@@ -64,11 +64,7 @@ function EditProfile() {
       newErrors.username = 'Username must be at least 3 characters';
     }
     
-    if (!generalForm.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(generalForm.email)) {
-      newErrors.email = 'Invalid email format';
-    }
+
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -107,8 +103,7 @@ function EditProfile() {
       const token = authService.getAccessToken();
       const requestUrl = `${API_URL}/users/${user?.username}`;
       const requestBody = {
-        username: generalForm.username,
-        email: generalForm.email
+        username: generalForm.username
       };
       
       const response = await fetch(requestUrl, {
@@ -127,7 +122,7 @@ function EditProfile() {
         if (data.user) {
           localStorage.setItem('user', JSON.stringify(data.user));
         } else {
-          const updatedUser = { ...user, username: generalForm.username, email: generalForm.email };
+          const updatedUser = { ...user, username: generalForm.username };
           localStorage.setItem('user', JSON.stringify(updatedUser));
         }
         toast.success('Profile updated successfully!');

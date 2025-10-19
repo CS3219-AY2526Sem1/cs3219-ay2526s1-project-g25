@@ -100,7 +100,12 @@ class UserProfileService {
   async updateProfile(username, profileData) {
     try {
       const response = await api.patch(`/users/${username}`, profileData);
-      return response.data.data;
+      // Backend returns { user: updatedUser, usernameChanged: boolean } in response.data.data
+      const payload = response.data?.data || {};
+      return {
+        user: payload.user || null,
+        usernameChanged: !!payload.usernameChanged
+      };
     } catch (error) {
       if (error.response?.data?.code === 'NO_CHANGES') {
         throw new Error('NO_CHANGES');

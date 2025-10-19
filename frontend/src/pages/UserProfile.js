@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import userProfileService from '../services/userProfileService';
-import { validateEmail, validatePassword } from '../utils/validation';
+import { validatePassword } from '../utils/validation';
 import toast from 'react-hot-toast';
 import './Profile.css';
 
@@ -16,6 +16,7 @@ function UserProfile() {
   const [editMode, setEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
 
   // Form states
   const [generalForm, setGeneralForm] = useState({
@@ -47,7 +48,7 @@ function UserProfile() {
     // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!username) return;
+      if (!username || isUpdatingUsername) return;
       
       try {
         setLoading(true);
@@ -71,7 +72,7 @@ function UserProfile() {
     };
 
     fetchProfile();
-  }, [username, navigate]);
+  }, [username, navigate, isUpdatingUsername]);
 
   const validateGeneralForm = () => {
     const newErrors = {};
@@ -80,12 +81,6 @@ function UserProfile() {
       newErrors.username = 'Username is required';
     } else if (generalForm.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
-    }
-    
-    if (!generalForm.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(generalForm.email)) {
-      newErrors.email = 'Invalid email format';
     }
     
     setErrors(newErrors);
@@ -117,24 +112,34 @@ function UserProfile() {
     e.preventDefault();
     if (!validateGeneralForm()) return;
 
+    const usernameChanged = generalForm.username !== username;
+    
+    if (usernameChanged) {
+      setIsUpdatingUsername(true);
+    }
+    
     setLoading(true);
     try {
       const result = await userProfileService.updateProfile(username, {
-        username: generalForm.username,
-        email: generalForm.email
+        username: generalForm.username
       });
-      
+
       if (result) {
-        // Update local user data
-        localStorage.setItem('user', JSON.stringify(result));
-        setProfileData(prev => ({ ...prev, ...result }));
-        
-        // If username changed, redirect to new URL
-        if (result.username !== username) {
+        // Update local user data (result.user)
+        if (result.user) {
+          localStorage.setItem('user', JSON.stringify(result.user));
+        }
+
+        // If username changed, redirect to new URL immediately
+        if (result.usernameChanged) {
           toast.success('Profile updated successfully!');
-          navigate(`/user/${result.username}`);
+          // Use replace instead of navigate to avoid back button issues
+          navigate(`/user/${result.user.username}`, { replace: true });
           return;
         }
+
+        // If no username change, update local state
+        setProfileData(prev => ({ ...prev, ...(result.user || {}) }));
       }
       
       toast.success('Profile updated successfully!');
@@ -145,6 +150,9 @@ function UserProfile() {
       resetFormToOriginal();
     } finally {
       setLoading(false);
+      if (usernameChanged) {
+        setIsUpdatingUsername(false);
+      }
     }
   };
 
