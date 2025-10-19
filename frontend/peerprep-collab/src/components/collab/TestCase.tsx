@@ -1,20 +1,35 @@
-export default function TestCase({input, output}) {
-    return (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 m-3 shadow-sm hover:shadow-md transition-shadow duration-200">
-            <div className="text-sm text-gray-700 space-y-1">
-                <div>
-                    <span className="font-medium text-blue-600">Input:</span>{" "}
-                    <pre className="bg-gray-100 text-gray-800 px-2 py-1 rounded-md font-mono text-sm">
-                        {input}
-                    </pre>
-                </div>
-                <div>
-                    <span className="font-medium text-green-600">Output:</span>{" "}
-                    <pre className="bg-gray-100 text-gray-800 px-2 py-1 rounded-md font-mono text-sm">
-                        {output}
-                    </pre>
-                </div>
-            </div>
+"use client"
+
+import { motion } from "framer-motion"
+
+interface TestCaseProps {
+  input: string
+  output: string
+  index: number
+}
+
+export default function TestCase({ input, output, index }: TestCaseProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className="bg-slate-800 border border-slate-700/50 rounded-xl p-4 shadow-lg hover:shadow-xl hover:border-purple-500/30 transition-all"
+    >
+      <div className="text-sm space-y-2">
+        <div>
+          <span className="font-semibold text-purple-400">Input:</span>
+          <pre className="mt-1 bg-slate-900 text-slate-300 px-3 py-2 rounded-lg font-mono text-xs border border-slate-700/50">
+            {input}
+          </pre>
         </div>
-    )
+        <div>
+          <span className="font-semibold text-emerald-400">Output:</span>
+          <pre className="mt-1 bg-slate-900 text-slate-300 px-3 py-2 rounded-lg font-mono text-xs border border-slate-700/50">
+            {output}
+          </pre>
+        </div>
+      </div>
+    </motion.div>
+  )
 }

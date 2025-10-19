@@ -6,6 +6,7 @@ import ExecutionPane from "@/components/collab/ExecutionPane";
 import QuestionPane from "@/components/collab/QuestionPane";
 import {createCollabManager} from "@/lib/collab/collabManager";
 import {useEffect, useRef, useState} from "react";
+import { motion } from "framer-motion"
 
 export default function CollabPage() {
     const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -57,9 +58,9 @@ export default function CollabPage() {
         }
 
         //ws.onmessage = (event) => {
-            //setMessages((prevMessages) => {
-                //return [...prevMessages, event.data]
-            //})
+        //setMessages((prevMessages) => {
+        //return [...prevMessages, event.data]
+        //})
         //}
 
         ws.onclose = () => {
@@ -70,7 +71,7 @@ export default function CollabPage() {
         ws.onerror = (err) => {
             console.error("Websocket Error:", err);
         }
-        
+
         setSocket(ws);
 
         // Cleanup on unmount
@@ -78,13 +79,15 @@ export default function CollabPage() {
     }, []);
 
     return (
-        <div className="h-screen flex flex-row">
-            <QuestionPane question={question}/>
-            <div className="w-1/3 flex flex-col">
-                <CodePane collabRef={collabRef}/>
-                <ExecutionPane/>
-            </div>
-            <ChatPane/>
+        <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-row gap-4">
+                <QuestionPane />
+                <div className="w-1/3 flex flex-col gap-4">
+                    <CodePane collabRef={collabRef}/>
+                    <ExecutionPane />
+                </div>
+                <ChatPane />
+            </motion.div>
         </div>
     )
 }
