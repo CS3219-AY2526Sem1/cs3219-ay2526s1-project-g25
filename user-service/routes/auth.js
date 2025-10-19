@@ -2,9 +2,10 @@ import express from 'express'
 import { body } from 'express-validator'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { deleteAccountByUsername } from '../controllers/userControl.js'
 import {
   register,
-  verifyEmail, // for backend-only testing
+  verifyEmail,
   login,
   refreshToken,
   logout,
@@ -60,5 +61,8 @@ router.post(
   body('confirmNewPassword').isString(),
   confirmPasswordReset
 )
+
+// Delete own account (authenticated user)
+router.post('/delete-account', deleteAccountByUsername)
 
 export default router

@@ -62,7 +62,7 @@ export const register = async (req, res) => {
   if (process.env.NODE_ENV !== 'test') {
     // Use Supabase auth to send email, but we'll handle verification with our token
     // First, create the Supabase auth user (this triggers their email)
-    const { error: mailError } = await supabase.auth.signUp({
+    const { data: authData, error: mailError } = await supabase.auth.signUp({
       email,
       password,
       options: { 
@@ -74,6 +74,14 @@ export const register = async (req, res) => {
         }
       }
     })
+
+    // Store the Supabase Auth ID in our users table if auth user was created
+    if (authData?.user?.id) {
+      await supabase
+        .from('users')
+        .update({ supabase_auth_id: authData.user.id })
+        .eq('id', userData.id)
+    }
 
     if (mailError) {
       console.error('[register] Supabase mail error:', mailError)
@@ -172,24 +180,29 @@ update({ refresh_token: refreshToken }).eq('id', user.id)
 // ---------------- Token Refresh ----------------
 export const refreshToken = async (req, res) => {
   const { refreshToken } = req.body
-  if (!refreshToken) return res.status(400).json({ message: 'Missing refresh token' })
+
+  if (!refreshToken) {
+    return res.status(400).json({ message: 'Missing refresh token' });
+  }
 
   try {
-    const payload = jwt.verify(refreshToken, REFRESH_SECRET)
+    const payload = jwt.verify(refreshToken, REFRESH_SECRET);
+
     const { data: users } = await supabase
       .from('users')
       .select('*')
       .eq('id', payload.userId)
       .eq('refresh_token', refreshToken)
-      .limit(1)
+      .limit(1);
 
-    if (!users || users.length === 0)
-      return res.status(401).json({ message: 'Invalid refresh token' })
+    if (!users || users.length === 0) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
 
-    const newAccess = makeAccessToken(payload.userId, users[0].roles)
-    res.json({ accessToken: newAccess })
-  } catch {
-    res.status(401).json({ message: 'Invalid or expired refresh token' })
+    const newAccess = makeAccessToken(payload.userId, users[0].roles);
+    res.json({ accessToken: newAccess });
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid or expired refresh token' });
   }
 }
 

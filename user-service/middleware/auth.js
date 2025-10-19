@@ -1,17 +1,21 @@
 import jwt from 'jsonwebtoken';
 const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'dev_access_secret';
 
-export function authenticateToken(req, res, next) {
+// Require valid authentication - fails if no token or invalid token
+export function requireAuth(req, res, next) {
   const auth = req.headers['authorization'];
   const token = auth && auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-  if (!token) return res.status(401).json({ message: 'Missing token' });
+
+  if (!token) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
 
   try {
     const payload = jwt.verify(token, ACCESS_SECRET);
     req.userId = payload.userId;
     req.roles = payload.roles || [];
     next();
-  } catch {
+  } catch (error) {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
 }

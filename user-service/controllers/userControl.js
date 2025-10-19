@@ -1,67 +1,356 @@
 import { supabase } from '../src/services/supabaseClient.js'
 import { verifyPassword, generateSalt, hashPassword } from '../src/utils/hash.js'
+import jwt from 'jsonwebtoken'
 
-export const getProfile = async (req, res) => {
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, username, email, roles, profile_pic, created_at, difficulty_counts')
-    .eq('id', req.userId)
-    .limit(1)
+const ACCESS_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your-access-secret'
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
 
-  const user = users && users[0]
-  if (!user) return res.status(404).json({ message: 'Not found' })
+export const getUserByUsername = async (req, res) => {
+  try {
+    const { username } = req.params
 
-  // Ensure difficulty_counts has default structure
-  if (!user.difficulty_counts) {
-    user.difficulty_counts = { easy: 0, medium: 0, hard: 0 }
-  }
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, username, roles, profile_pic, created_at, difficulty_counts')
+      .eq('username', username)
+      .limit(1)
 
-  res.json(user)
-}
-
-export const updateProfile = async (req, res) => {
-  const { email, currentPassword, newPassword, profilePic } = req.body
-
-  const { data: users } = await supabase.from('users').select('*').eq('id', req.userId).limit(1)
-  const user = users && users[0]
-  if (!user) return res.status(404).json({ message: 'Not found' })
-
-  if ((email && email !== user.email) || newPassword) {
-    if (!currentPassword || !verifyPassword(currentPassword, user.salt, user.password_hash)) {
-      return res.status(401).json({ message: 'Invalid current password' })
+    const user = users && users[0]
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      })
     }
+
+    // Ensure difficulty_counts has default structure
+    if (!user.difficulty_counts) {
+      user.difficulty_counts = { easy: 0, medium: 0, hard: 0 }
+    }
+
+    // Add isOwner flag if user is authenticated and viewing their own profile
+    const isOwner = req.userId && req.userId === user.id
+    
+    // Only include email if it's the owner viewing their profile
+    if (isOwner) {
+      const { data: ownerUsers } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', user.id)
+        .limit(1)
+      
+      if (ownerUsers && ownerUsers[0]) {
+        user.email = ownerUsers[0].email
+      }
+    }
+
+    res.json({ 
+      success: true,
+      data: { ...user, isOwner }
+    })
+  } catch (error) {
+    console.error('Get user error:', error)
+    res.status(500).json({ 
+      success: false,
+      message: 'Internal server error' 
+    })
   }
-
-  let newSalt = user.salt
-  let newHash = user.password_hash
-
-  if (newPassword) {
-    newSalt = generateSalt()
-    newHash = hashPassword(newPassword, newSalt)
-  }
-
-  await supabase.from('users').update({
-    email: email || user.email,
-    salt: newSalt,
-    password_hash: newHash,
-    profile_pic: profilePic || user.profile_pic,
-    refresh_token: null
-  }).eq('id', req.userId)
-
-  res.json({ message: 'Profile updated' })
 }
 
-export const deleteAccount = async (req, res) => {
-  const { currentPassword } = req.body
+export const updateProfileByUsername = async (req, res) => {
+  try {
+    const { username: targetUsername } = req.params
+    const { username, email, currentPassword, newPassword, profilePic } = req.body
 
-  const { data: users } = await supabase.from('users').select('*').eq('id', req.userId).limit(1)
-  const user = users && users[0]
-  if (!user) return res.status(404).json({ message: 'Not found' })
+    // Get target user by username
+    const { data: targetUsers } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', targetUsername)
+      .limit(1)
 
-  if (!currentPassword || !verifyPassword(currentPassword, user.salt, user.password_hash)) {
-    return res.status(401).json({ message: 'Invalid password' })
+    const targetUser = targetUsers?.[0]
+    if (!targetUser) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      })
+    }
+
+    // Only allow users to update their own profile
+    if (req.userId !== targetUser.id) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'You can only update your own profile' 
+      })
+    }
+
+    // Check if anything actually changed
+    const usernameChanged = username && username !== targetUser.username
+    const emailChanged = email && email !== targetUser.email
+    const passwordChanged = newPassword && currentPassword
+    
+    if (!usernameChanged && !emailChanged && !passwordChanged && !profilePic) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'NO_CHANGES',
+        code: 'NO_CHANGES'
+      })
+    }
+
+    // Check if username already exists (if trying to change username)
+    if (usernameChanged) {
+      const { data: existingUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username)
+        .limit(1)
+      
+      if (existingUsers && existingUsers.length > 0) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Username already taken' 
+        })
+      }
+    }
+
+    // Check if email already exists (if trying to change email)
+    if (emailChanged) {
+      const { data: existingUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .limit(1)
+      
+      if (existingUsers && existingUsers.length > 0) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Email already taken' 
+        })
+      }
+    }
+
+    // Require current password for password changes only
+    if (passwordChanged) {
+      if (!currentPassword || !verifyPassword(currentPassword, targetUser.salt, targetUser.password_hash)) {
+        return res.status(401).json({ 
+          success: false,
+          message: 'Invalid current password' 
+        })
+      }
+    }
+
+
+
+    let newSalt = targetUser.salt
+    let newHash = targetUser.password_hash
+
+    if (passwordChanged) {
+      newSalt = generateSalt()
+      newHash = hashPassword(newPassword, newSalt)
+    }
+
+    const updateData = {
+      username: username || targetUser.username,
+      email: email || targetUser.email,
+      salt: newSalt,
+      password_hash: newHash,
+      profile_pic: profilePic || targetUser.profile_pic
+    }
+
+    // Only invalidate refresh token if password changed
+    if (passwordChanged) {
+      updateData.refresh_token = null
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', req.userId)
+    
+    if (error) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to update profile',
+        error: error.message 
+      })
+    }
+
+    // Return updated user data (excluding sensitive fields)
+    const { data: updatedUsers } = await supabase
+      .from('users')
+      .select('id, username, email, roles, profile_pic, created_at, difficulty_counts')
+      .eq('id', req.userId)
+      .limit(1)
+
+    const updatedUser = updatedUsers && updatedUsers[0]
+    
+    res.json({ 
+      success: true,
+      message: usernameChanged ? 'Profile updated successfully' : 'Password updated successfully',
+      data: {
+        user: updatedUser,
+        usernameChanged: usernameChanged
+      }
+    })
+  } catch (error) {
+    console.error('Update profile error:', error)
+    res.status(500).json({ 
+      success: false,
+      message: 'Internal server error' 
+    })
+  }
+}
+
+export const deleteAccountByUsername = async (req, res) => {
+  try {
+    const { username: targetUsername } = req.params
+    const { currentPassword } = req.body
+
+    if (!currentPassword) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Current password is required' 
+      })
+    }
+
+    // Get target user by username
+    const { data: targetUsers } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', targetUsername)
+      .limit(1)
+
+    const targetUser = targetUsers?.[0]
+    if (!targetUser) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      })
+    }
+
+    // Only allow users to delete their own account
+    if (req.userId !== targetUser.id) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'You can only delete your own account' 
+      })
+    }
+
+    if (!verifyPassword(currentPassword, targetUser.salt, targetUser.password_hash)) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid password' 
+      })
+    }
+
+    // Delete from users table - we manage our own authentication system
+    const { error } = await supabase.from('users').delete().eq('id', targetUser.id)
+    
+    if (error) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to delete user account',
+        error: error.message 
+      })
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Account deleted successfully' 
+    })
+  } catch (error) {
+    console.error('Delete account error:', error)
+    res.status(500).json({ 
+      success: false,
+      message: 'Internal server error' 
+    })
+  }
+}
+
+export const verifyEmailChange = async (req, res) => {
+  const token = req.query.token || req.body.token
+
+  if (!token) {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Missing verification token' 
+    })
   }
 
-  await supabase.from('users').delete().eq('id', req.userId)
-  res.json({ message: 'Account deleted' })
+  try {
+    const payload = jwt.verify(token, ACCESS_SECRET)
+    
+    if (payload.type !== 'email-change') {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid token type' 
+      })
+    }
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', payload.userId)
+      .limit(1)
+
+    const user = users?.[0]
+    if (!user) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid or expired token' 
+      })
+    }
+
+    if (user.pending_email !== payload.newEmail) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email verification token does not match pending email' 
+      })
+    }
+
+    // Check if the new email is still available
+    const { data: existingUsers } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', payload.newEmail)
+      .neq('id', payload.userId)
+      .limit(1)
+    
+    if (existingUsers && existingUsers.length > 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email is no longer available' 
+      })
+    }
+
+    // Update email and clear pending_email in your custom users table only
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        email: payload.newEmail,
+        pending_email: null 
+      })
+      .eq('id', payload.userId)
+
+    if (updateError) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to update email in database' 
+      })
+    }
+
+    console.log(`Email successfully updated for user ${payload.userId}: ${payload.newEmail}`)
+
+    res.json({ 
+      success: true,
+      message: 'Email updated successfully' 
+    })
+  } catch (error) {
+    console.error('Email change verification error:', error)
+    res.status(400).json({ 
+      success: false,
+      message: 'Invalid or expired token' 
+    })
+  }
 }
