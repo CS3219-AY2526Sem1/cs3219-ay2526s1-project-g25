@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { executeCode } from "@/lib/collabApi";
 import { useCollabStore } from "@/lib/collabStore";
 import { getParams } from "@/lib/helpers";
+import {connectCollabSocket} from "@/lib/collabSocket";
 
 // Returns the diff index between two strings, used for updating text via websocket.
 function findDiffIndex(str1: string, str2: string): number {
@@ -14,12 +15,15 @@ function findDiffIndex(str1: string, str2: string): number {
     return i;
 }
 
-export default function CodePane({collabRef}) {
+export default function CodePane() {
     const [language, setLanguage] = useState("python");
     const [code, setCode] = useState("");
+    const [docVersion, setDocVersion] = useState(0);
+    const [sendMsg, setSendMsg] = useState<(data: any) => void>(() => () => {})
     const { setOutput, setTests } = useCollabStore();
 
-    const { sessionId } = getParams();
+    const { userId, sessionId } = getParams();
+
 
     const boilerplates: Record<string, string> = {
         python: `def solve():\n    # write your code here\n    pass\n\nif __name__ == "__main__":\n    solve()`,
@@ -30,35 +34,54 @@ export default function CodePane({collabRef}) {
 
     useEffect(() => {
         setCode(boilerplates[language]);
+
+        const { send } = connectCollabSocket(sessionId, userId, (msg) => {
+            console.log(msg);
+            // We don't need to reload the entire textarea if the change is caused by us.
+            if (msg?.by === userId) { return; }
+            if (msg.type === "doc:applied" || msg.type === "doc:resync") {
+                console.log("CCC");
+                setCode(msg.document.text);
+                setDocVersion(msg.document.version);
+            }
+        })
+
+        setSendMsg(() => send);
     }, [language]);
 
-    collabRef?.current?.onRemoteChange((newText: string) => {
-        setCode(newText);
-    })
+    const getCaretPosition = (textarea: HTMLElement) => {
+        if (textarea.selectionStart || textarea.selectionStart === 0) {
+            return textarea.selectionStart;
+        }
+        return 0;
+    }
 
     const handleCodeChanged = (e) => {
-        console.log("code changED!")
-        // TODO: Insert text only for now.
-        const newText = e.target.value;
-        const oldText = collabRef?.current?.getText() || "";
+        const codeTextarea = e.target;
 
-        // Find diff index (naively)
-        const diffIndex = findDiffIndex(oldText, newText);
-        const insertedText = newText.slice(diffIndex, diffIndex + (newText.length - oldText.length));
-
-        const currentVersionNumber = (collabRef?.current?.getVersion() || 0);
-
-        collabRef?.current?.sendLocalChange({
+        console.log("code changed!")
+        console.log(getCaretPosition(codeTextarea));
+        sendMsg({
             "type": "doc:op",
             "op": {
                 "type": "insert",
-                "index": diffIndex,
-                "text": insertedText,
-                "version": currentVersionNumber
+                "index": 0,
+                "text": "HELLO",
+                "version": docVersion
             }
         });
 
+        // TODO: Insert text only for now.
+        //const newText = e.target.value;
+        //const oldText = collabRef?.current?.getText() || "";
+
+        //// Find diff index (naively)
+        //const diffIndex = findDiffIndex(oldText, newText);
+        //const insertedText = newText.slice(diffIndex, diffIndex + (newText.length - oldText.length));
+
+        //const currentVersionNumber = (collabRef?.current?.getVersion() || 0);
         setCode(e.target.value);
+        setDocVersion((docVersion) => docVersion + 1);
     }
 
     async function handleRun() {
