@@ -1,4 +1,45 @@
-export default function CodePane() {
+import {useState} from "react";
+
+// Returns the diff index between two strings, used for updating text via websocket.
+function findDiffIndex(str1: string, str2: string): number {
+    let i = 0;
+    while (i < str1.length && i < str2.length && str1[i] == str2[i]) { i++; }
+    return i;
+}
+
+export default function CodePane({collabRef}) {
+    const [language, setLanguage] = useState("Python");
+    const [code, setCode] = useState("");
+
+    collabRef?.current?.onRemoteChange((newText) => {
+        setCode(newText);
+    })
+
+    const handleCodeChanged = (e) => {
+        console.log("code changED!")
+        // TODO: Insert text only for now.
+        const newText = e.target.value;
+        const oldText = collabRef?.current?.getText() || "";
+
+        // Find diff index (naively)
+        const diffIndex = findDiffIndex(oldText, newText);
+        const insertedText = newText.slice(diffIndex, diffIndex + (newText.length - oldText.length));
+
+        const currentVersionNumber = (collabRef?.current?.getVersion() || 0);
+
+        collabRef?.current?.sendLocalChange({
+            "type": "doc:op",
+            "op": {
+                "type": "insert",
+                "index": diffIndex,
+                "text": insertedText,
+                "version": currentVersionNumber
+            }
+        });
+
+        setCode(e.target.value);
+    }
+
     return (
         <div className="w-full h-3/4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm overflow-y-scroll">
             <div className="w-full flex flex-row p-4 justify-between items-center mb-4">
@@ -11,7 +52,12 @@ export default function CodePane() {
                 </select>
                 <button className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition">Run Code</button>
             </div>
-            <textarea className="w-full h-full p-4 text-gray-700 font-mono"></textarea>
+            <textarea
+                placeholder="Code..."
+                value={code}
+                onChange={handleCodeChanged}
+                className="w-full h-full p-4 text-gray-700 font-mono">
+            </textarea>
         </div>
     );
 }

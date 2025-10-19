@@ -4,7 +4,8 @@ import ChatPane from "@/components/collab/ChatPane";
 import CodePane from "@/components/collab/CodePane";
 import ExecutionPane from "@/components/collab/ExecutionPane";
 import QuestionPane from "@/components/collab/QuestionPane";
-import {useEffect, useState} from "react";
+import {createCollabManager} from "@/lib/collab/collabManager";
+import {useEffect, useRef, useState} from "react";
 
 export default function CollabPage() {
     const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -12,6 +13,8 @@ export default function CollabPage() {
     const [userId, setUserId] = useState<string>("");
     const [messages, setMessages] = useState<string[]>([]);
     const [connected, setConnected] = useState(false);
+
+    const collabRef = useRef<any>(null);
 
     // TEMPORARY: Question Data.
     const question = {
@@ -49,13 +52,15 @@ export default function CollabPage() {
         ws.onopen = () => {
             console.log(`Connected to websocket server at ${wsUrl}`);
             setConnected(true);
+
+            collabRef.current = createCollabManager(ws);
         }
 
-        ws.onmessage = (event) => {
-            setMessages((prevMessages) => {
-                return [...prevMessages, event.data]
-            })
-        }
+        //ws.onmessage = (event) => {
+            //setMessages((prevMessages) => {
+                //return [...prevMessages, event.data]
+            //})
+        //}
 
         ws.onclose = () => {
             console.log("Disconnected.");
@@ -76,7 +81,7 @@ export default function CollabPage() {
         <div className="h-screen flex flex-row">
             <QuestionPane question={question}/>
             <div className="w-1/3 flex flex-col">
-                <CodePane/>
+                <CodePane collabRef={collabRef}/>
                 <ExecutionPane/>
             </div>
             <ChatPane/>
