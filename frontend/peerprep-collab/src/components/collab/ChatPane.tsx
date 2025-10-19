@@ -8,16 +8,7 @@ import { MessageSquare, Sparkles, Lightbulb, Code, Bug, Loader2 } from "lucide-r
 import { useEffect, useState } from "react"
 import { connectCollabSocket } from "@/lib/collabSocket"
 import { sendAIMessage, getHint, analyzeCode, debugError } from "@/lib/aiService"
-
-// Utility: extract params from URL (sessionId, userId)
-function getParams() {
-  if (typeof window === "undefined") return { sessionId: "", userId: "" }
-  const url = new URL(window.location.href)
-  return {
-    sessionId: url.searchParams.get("sessionId") || "demo-session",
-    userId: url.searchParams.get("userId") || "guest-" + Math.random().toString(36).slice(2, 7)
-  }
-}
+import { getParams } from "@/lib/helpers"
 
 export default function ChatPane() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai">("chat")

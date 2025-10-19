@@ -5,17 +5,7 @@ import { Play, Code2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { executeCode } from "@/lib/collabApi";
 import { useCollabStore } from "@/lib/collabStore";
-
-function getParams() {
-  if (typeof window === "undefined") return { sessionId: "", userId: "" };
-  const url = new URL(window.location.href);
-  return {
-    sessionId: url.searchParams.get("sessionId") || "demo-session",
-    userId:
-      url.searchParams.get("userId") ||
-      "guest-" + Math.random().toString(36).slice(2, 7),
-  };
-}
+import { getParams } from "@/lib/helpers";
 
 // Returns the diff index between two strings, used for updating text via websocket.
 function findDiffIndex(str1: string, str2: string): number {
