@@ -1,18 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
 import toast from 'react-hot-toast';
+import authService from '../services/authService';
+import UserProfileDropdown from '../components/UserProfileDropdown';
 import './Dashboard.css';
 
 function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getCurrentUser();
 
-  const handleLogout = () => {
-    authService.logout();
-    toast.success('Logged out successfully!');
-    navigate('/auth');
-  };
+
 
   const handleStartMatching = () => {
   const token = authService.getAccessToken();
@@ -26,6 +23,7 @@ function Dashboard() {
     process.env.REACT_APP_MATCHING_UI_URL || "http://localhost:3002";
 
   // Redirect with token as query param
+  // eslint-disable-next-line no-restricted-globals
   window.location.href = `${matchingUIUrl}/match?token=${token}`;
 };
 
@@ -38,13 +36,7 @@ function Dashboard() {
             <span className="logo-text">PeerPrep</span>
           </div>
           <div className="user-section">
-            <div className="user-info">
-              <span className="user-avatar">{user?.username?.[0]?.toUpperCase()}</span>
-              <span className="user-name">{user?.username}</span>
-            </div>
-            <button onClick={handleLogout} className="logout-button">
-              Logout
-            </button>
+            <UserProfileDropdown />
           </div>
         </div>
       </div>
@@ -81,7 +73,7 @@ function Dashboard() {
             <div className="card-icon">👤</div>
             <h3>Profile</h3>
             <p>Manage your account settings</p>
-            <button className="card-button">Edit Profile</button>
+            <button className="card-button" onClick={() => navigate(`/user/${user?.username}`)}>View Profile</button>
           </div>
 
           {user?.roles?.includes('admin') && (
