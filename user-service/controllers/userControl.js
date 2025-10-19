@@ -244,6 +244,15 @@ export const deleteAccountByUsername = async (req, res) => {
       })
     }
 
+    // Delete from Supabase Auth table first (if supabase_auth_id exists)
+    if (targetUser.supabase_auth_id) {
+      const { error: authError } = await supabase.auth.admin.deleteUser(targetUser.supabase_auth_id)
+      if (authError) {
+        console.warn('Failed to delete from Supabase Auth:', authError.message)
+        // Continue with custom user table deletion even if auth deletion fails
+      }
+    }
+
     // Delete from users table - we manage our own authentication system
     const { error } = await supabase.from('users').delete().eq('id', targetUser.id)
     
