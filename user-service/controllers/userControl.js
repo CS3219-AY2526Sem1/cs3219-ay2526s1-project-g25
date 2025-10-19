@@ -2,7 +2,7 @@ import { supabase } from '../src/services/supabaseClient.js'
 import { verifyPassword, generateSalt, hashPassword } from '../src/utils/hash.js'
 import jwt from 'jsonwebtoken'
 
-const ACCESS_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your-access-secret'
+const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'your-access-secret'
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
 
 export const getUserByUsername = async (req, res) => {
@@ -114,20 +114,12 @@ export const updateProfileByUsername = async (req, res) => {
       }
     }
 
-    // Check if email already exists (if trying to change email)
+    // Don't allow email changes for security reasons
     if (emailChanged) {
-      const { data: existingUsers } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .limit(1)
-      
-      if (existingUsers && existingUsers.length > 0) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Email already taken' 
-        })
-      }
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email cannot be changed through profile update' 
+      });
     }
 
     // Require current password for password changes only
@@ -152,7 +144,7 @@ export const updateProfileByUsername = async (req, res) => {
 
     const updateData = {
       username: username || targetUser.username,
-      email: email || targetUser.email,
+      email: targetUser.email, // Email cannot be changed
       salt: newSalt,
       password_hash: newHash,
       profile_pic: profilePic || targetUser.profile_pic
@@ -277,89 +269,3 @@ export const deleteAccountByUsername = async (req, res) => {
   }
 }
 
-export const verifyEmailChange = async (req, res) => {
-  const token = req.query.token || req.body.token
-
-  if (!token) {
-    return res.status(400).json({ 
-      success: false,
-      message: 'Missing verification token' 
-    })
-  }
-
-  try {
-    const payload = jwt.verify(token, ACCESS_SECRET)
-    
-    if (payload.type !== 'email-change') {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Invalid token type' 
-      })
-    }
-
-    const { data: users } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', payload.userId)
-      .limit(1)
-
-    const user = users?.[0]
-    if (!user) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Invalid or expired token' 
-      })
-    }
-
-    if (user.pending_email !== payload.newEmail) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email verification token does not match pending email' 
-      })
-    }
-
-    // Check if the new email is still available
-    const { data: existingUsers } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', payload.newEmail)
-      .neq('id', payload.userId)
-      .limit(1)
-    
-    if (existingUsers && existingUsers.length > 0) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email is no longer available' 
-      })
-    }
-
-    // Update email and clear pending_email in your custom users table only
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ 
-        email: payload.newEmail,
-        pending_email: null 
-      })
-      .eq('id', payload.userId)
-
-    if (updateError) {
-      return res.status(500).json({ 
-        success: false,
-        message: 'Failed to update email in database' 
-      })
-    }
-
-    console.log(`Email successfully updated for user ${payload.userId}: ${payload.newEmail}`)
-
-    res.json({ 
-      success: true,
-      message: 'Email updated successfully' 
-    })
-  } catch (error) {
-    console.error('Email change verification error:', error)
-    res.status(400).json({ 
-      success: false,
-      message: 'Invalid or expired token' 
-    })
-  }
-}
