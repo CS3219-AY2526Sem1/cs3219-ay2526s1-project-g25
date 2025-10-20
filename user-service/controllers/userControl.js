@@ -1,9 +1,5 @@
 import { supabase } from '../src/services/supabaseClient.js'
 import { verifyPassword, generateSalt, hashPassword } from '../src/utils/hash.js'
-import jwt from 'jsonwebtoken'
-
-const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'your-access-secret'
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
 
 export const getUserByUsername = async (req, res) => {
   try {
@@ -11,7 +7,7 @@ export const getUserByUsername = async (req, res) => {
 
     const { data: users } = await supabase
       .from('users')
-      .select('id, username, roles, profile_pic, created_at, difficulty_counts')
+      .select('id, username, roles, created_at, difficulty_counts')
       .eq('username', username)
       .limit(1)
 
@@ -147,7 +143,6 @@ export const updateProfileByUsername = async (req, res) => {
       email: targetUser.email, // Email cannot be changed
       salt: newSalt,
       password_hash: newHash,
-      profile_pic: profilePic || targetUser.profile_pic
     }
 
     // Only invalidate refresh token if password changed
@@ -171,7 +166,7 @@ export const updateProfileByUsername = async (req, res) => {
     // Return updated user data (excluding sensitive fields)
     const { data: updatedUsers } = await supabase
       .from('users')
-      .select('id, username, email, roles, profile_pic, created_at, difficulty_counts')
+      .select('id, username, email, roles, created_at, difficulty_counts')
       .eq('id', req.userId)
       .limit(1)
 
