@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3001
 
 const app = express()
 const origins = (process.env.CORS_ORIGIN || '').split(',');
-app.use(cors({ origin: origins, credentials: true }));
+app.use(cors());
 app.use(express.json())
 app.use(cookieParser())
 app.get('/health', (req, res) => res.status(200).send('OK'));
