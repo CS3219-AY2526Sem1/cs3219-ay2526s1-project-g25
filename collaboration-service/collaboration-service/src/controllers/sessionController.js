@@ -4,6 +4,7 @@ import { redisRepo } from "../repos/redisRepo.js";
 import { runOnce } from "../services/executionService.js";
 import { broadcast } from "../ws/gateway.js";
 import { redisClient } from "../services/redisClient.js";
+import axios from "axios";
 
 /**
  * Validation schema for session creation
@@ -21,30 +22,42 @@ const createSessionSchema = z.object({
  */
 export const createSession = async (req, res) => {
   try {
-    console.log("Received body:", req.body);
     const parsed = createSessionSchema.safeParse(req.body);
-    if (!parsed.success) {
-      console.error("Validation failed:", parsed.error.issues);
+    if (!parsed.success)
       return res.status(400).json({ error: parsed.error.issues });
+
+    const s = await makeSession(parsed.data);
+
+    // store participants
+    await redisRepo.sAdd(`collab:session:${s.id}:participants`, s.userA, s.userB);
+
+    // After creating the session, call User Service to increment difficulty
+    const markSolvedUrl = `${process.env.NEXT_PUBLIC_USER_SERVICE_URL}/difficulty/solve`;
+
+    try {
+      // ✅ Increment for both users in parallel
+      await Promise.all([
+        axios.post(markSolvedUrl, {
+          userId: s.userA,
+          difficulty: s.difficulty,
+        }),
+        axios.post(markSolvedUrl, {
+          userId: s.userB,
+          difficulty: s.difficulty,
+        }),
+      ]);
+
+      console.log(
+        `[createSession] Incremented ${s.difficulty} for ${s.userA} and ${s.userB}`
+      );
+    } catch (err) {
+      console.warn("[createSession] Difficulty update failed:", err.message);
     }
 
-    // `makeSession` already writes everything to Redis
-    const s = await makeSession(parsed.data);
-    console.log("Created session:", s);
-
-    // Store allowed participants for authorization
-    await redisRepo.sAdd(
-      `collab:session:${s.id}:participants`,
-      s.userA,
-      s.userB
-    );
-
-
-
-    return res.status(201).json(s);
+    res.status(201).json(s);
   } catch (e) {
     console.error("[createSession] Error:", e);
-    return res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 };
 
