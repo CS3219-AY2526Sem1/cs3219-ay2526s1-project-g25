@@ -1,0 +1,29 @@
+.floating-code-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.code-snippet {
+  position: absolute;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: rgba(102, 126, 234, 0.4);
+  font-weight: 500;
+  white-space: nowrap;
+  text-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+}
+
+.code-text {
+  display: block;
+  padding: 8px 16px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  backdrop-filter: blur(4px);
+}

@@ -1,0 +1,15 @@
+# deps & build artifacts
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+dist
+build
+.cache
+*.log
+
+# env/secrets (never bake into the image)
+.env
+.env.*
+.DS_Store
+.git
