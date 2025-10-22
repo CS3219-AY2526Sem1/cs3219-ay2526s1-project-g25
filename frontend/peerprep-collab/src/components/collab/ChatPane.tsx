@@ -20,32 +20,39 @@ export default function ChatPane() {
   const { sessionId, userId } = getParams()
 
   // Initialize WebSocket
-  useEffect(() => {
-    const { send } = connectCollabSocket(sessionId, userId, (msg) => {
-      // Handle regular chat messages
-      if (msg.type === "chat:message") {
-        if (msg.userId !== userId) {
-          setMessages((prev) => [...prev, msg]);
-        }
+ useEffect(() => {
+  console.log("🔌 Opening collab socket...");
+  const { ws, send } = connectCollabSocket(sessionId, userId, (msg) => {
+    // Handle regular chat messages
+    if (msg.type === "chat:message") {
+      if (msg.userId !== userId) {
+        setMessages((prev) => [...prev, msg]);
       }
+    }
 
-      // Handle AI messages from WebSocket (type can be "ai", "ai:message", "ai-hint", etc.)
-      if (msg.type === "ai:message" || msg.type === "ai" || msg.type?.startsWith("ai-")) {
-        setAIMessages((prev) => [...prev, msg]);
-        setIsAILoading(false);
+    // Handle AI messages
+    if (msg.type === "ai:message" || msg.type === "ai" || msg.type?.startsWith("ai-")) {
+      setAIMessages((prev) => [...prev, msg]);
+      setIsAILoading(false);
+    }
+
+    // Initialize chat history
+    if (msg.type === "init") {
+      if (Array.isArray(msg.chat)) {
+        setMessages(msg.chat);
       }
+    }
+  });
 
-      // Initialize chat and AI chat history
-      if (msg.type === "init") {
-        if (Array.isArray(msg.chat)) {
-          setMessages(msg.chat);
-        }
-        // Start with fresh AI chat each session
-      }
-    });
+  setSendMsg(() => send);
 
-    setSendMsg(() => send);
-  }, [sessionId, userId]);
+  // 🔒 Cleanup: close socket when component unmounts or deps change
+  return () => {
+    console.log("❌ Closing collab socket...");
+    ws.close();
+  };
+}, [sessionId, userId]); // ✅ Keep dependency array exact
+
 
   // Handle sending a regular chat message
   function handleSend(text: string) {

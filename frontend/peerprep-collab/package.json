@@ -2,12 +2,13 @@
   "name": "peerprep-collab",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
-    "lint": "eslint"
-  },
+"scripts": {
+  "dev": "next dev --turbopack --port 4000",
+  "build": "next build --turbopack",
+  "start": "next start -p 4000",
+  "lint": "eslint"
+}
+,
   "dependencies": {
     "diff": "^8.0.2",
     "framer-motion": "^12.23.24",

@@ -4,44 +4,56 @@ import ChatPane from "@/components/collab/ChatPane";
 import CodePane from "@/components/collab/CodePane";
 import ExecutionPane from "@/components/collab/ExecutionPane";
 import QuestionPane from "@/components/collab/QuestionPane";
-import {createCollabManager} from "@/lib/collab/collabManager";
-import {useEffect, useRef, useState} from "react";
-import { motion } from "framer-motion"
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 
 export default function CollabPage() {
-    const [socket, setSocket] = useState<WebSocket | null>(null);
-    const [messages, setMessages] = useState<string[]>([]);
-    const [connected, setConnected] = useState(false);
+  const params = useSearchParams();
+  const sessionId = params.get("sessionId");
+  const [question, setQuestion] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-    // TEMPORARY: Question Data.
-    const question = {
-        title: "Find Maximum Element",
-        description: "Find the largest element given an array.",
-        difficulty: "easy",
-        topic: "Graphs",
-        test_cases: [
-            {
-                "input": "[1, 9, 3]",
-                "output": "9"
-            },
-            {
-                "input": "[5, 2, 8]",
-                "output": "8"
-            }
-        ],
-        imageUrl: "https://picsum.photos/200"
+  useEffect(() => {
+    if (!sessionId) return;
+
+    async function fetchSession() {
+      try {
+        // 1️⃣ Fetch session info from Collaboration backend
+        const res = await fetch(`${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}`);
+        const data = await res.json();
+
+        if (!data.session) throw new Error("No session found");
+        const qid = data.session.questionId;
+
+        // 2️⃣ Fetch question details from Question Service
+        const qres = await fetch(`${process.env.NEXT_PUBLIC_QUESTION_BASE_URL}/questions/${qid}`);
+        const qdata = await qres.json();
+
+        setQuestion(qdata);
+      } catch (err) {
+        console.error("[CollabPage] Failed to fetch question:", err);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    return (
-        <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-row gap-4">
-                <QuestionPane question={question}/>
-                <div className="w-1/3 flex flex-col gap-4">
-                    <CodePane />
-                    <ExecutionPane />
-                </div>
-                <ChatPane />
-            </motion.div>
+    fetchSession();
+  }, [sessionId]);
+
+  if (loading) return <div className="text-white p-10">Loading session...</div>;
+  if (!question) return <div className="text-red-400 p-10">No question found.</div>;
+
+  return (
+    <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-row gap-4">
+        <QuestionPane question={question} />
+        <div className="w-1/3 flex flex-col gap-4">
+          <CodePane />
+          <ExecutionPane />
         </div>
-    )
+        <ChatPane />
+      </motion.div>
+    </div>
+  );
 }
