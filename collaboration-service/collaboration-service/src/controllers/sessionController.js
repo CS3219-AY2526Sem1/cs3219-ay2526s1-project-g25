@@ -39,6 +39,8 @@ export const createSession = async (req, res) => {
       s.userB
     );
 
+
+
     return res.status(201).json(s);
   } catch (e) {
     console.error("[createSession] Error:", e);
@@ -112,7 +114,7 @@ export const leaveSession = async (req, res) => {
       status = "ended";
     }
 
-    // ✅ Broadcast session:end to all remaining participants
+    // Broadcast session:end to all remaining participants
     const payload = {
       type: "session:end",
       endedBy: userId,

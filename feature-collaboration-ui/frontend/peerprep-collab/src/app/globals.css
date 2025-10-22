@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* globals.css */
+.react-resizable-panel {
+  transition: width 0.25s ease-in-out, height 0.25s ease-in-out;
+}
+
+.react-resizable-handle {
+  background-color: rgba(255, 255, 255, 0.05);
+  transition: background-color 0.2s ease-in-out;
+  backdrop-filter: blur(6px);
+}
+
+.react-resizable-handle:hover {
+  background-color: rgba(99, 102, 241, 0.6); /* Indigo glow */
+}

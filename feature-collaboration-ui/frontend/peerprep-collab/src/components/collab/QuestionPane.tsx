@@ -57,7 +57,7 @@ const handleEndSession = async () => {
     console.log("[UI] Leave response:", data);
 
     alert("Session ended. Redirecting to dashboard...");
-    router.push("http://localhost:3000/dashboard");
+    router.push(process.env.NEXT_PUBLIC_DASHBOARD_URL!);
   } catch (err) {
     console.error("[UI] Failed to end session:", err);
   }
@@ -68,7 +68,7 @@ const handleEndSession = async () => {
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="w-1/3 h-full bg-slate-900 border border-slate-700/50 rounded-2xl p-6 shadow-xl overflow-y-auto"
+      className="h-full w-full bg-slate-900 border border-slate-700/50 rounded-2xl p-6 shadow-xl overflow-y-auto"
     >
 
       {/* Header with End Session */}
