@@ -42,6 +42,10 @@ export default function ChatPane() {
         setMessages(msg.chat);
       }
     }
+    if (msg.type === "session:end") {
+        alert("Your partner has ended the session. Returning to dashboard...");
+        window.location.href = "http://localhost:3000/dashboard";
+}
   });
 
   setSendMsg(() => send);

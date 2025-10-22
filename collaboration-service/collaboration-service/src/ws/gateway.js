@@ -49,9 +49,6 @@ export function initGateway(wss) {
           s && (userId === s.userA || userId === s.userB);
 
         if (!fallback) {
-          console.warn(
-            `[WS] denied join: user=${userId} not in session:${sessionId} participants`
-          );
           return ws.close(1008, "unauthorized");
         }
       }
@@ -229,6 +226,44 @@ export function initGateway(wss) {
           }
         }
 
+          if (msg.type === "session:end") {
+            console.log(`[WS] ${userId} ended session ${sessionId}`);
+
+            const payload = {
+              type: "session:end",
+              endedBy: userId,
+              message: "Session has been ended by one of the participants.",
+            };
+
+            // ✅ Mark session as ended in Redis
+            const session = await redisRepo.getJson(`collab:session:${sessionId}`);
+            if (session) {
+              session.status = "ended";
+              await redisRepo.setJson(`collab:session:${sessionId}`, session);
+            }
+
+            // ✅ Broadcast to all participants
+            broadcast(sessionId, payload, null);
+
+            // 🕐 Give 1s delay so all clients receive before closing
+            setTimeout(() => {
+              const room = wsRooms.get(sessionId);
+              if (room) {
+                for (const sock of room) {
+                  try {
+                    sock.close(1000, "Session ended");
+                  } catch (err) {
+                    console.error("[WS] socket close failed:", err);
+                  }
+                }
+                wsRooms.delete(sessionId);
+              }
+            }, 1000);
+
+            return;
+          }
+
+
         ws.send(JSON.stringify({ type: "error", error: "unknown message type" }));
       } catch (e) {
         ws.send(JSON.stringify({ type: "error", error: e?.message || String(e) }));
@@ -245,9 +280,20 @@ export function initGateway(wss) {
 export function broadcast(sessionId, payload, exclude) {
   const room = wsRooms.get(sessionId);
   if (!room) return;
+
+  console.log(`[WS] Broadcasting ${payload.type} to ${room.size} clients in ${sessionId}`);
+
   for (const sock of room) {
-    if (sock !== exclude && sock.readyState === sock.OPEN) {
-      sock.send(JSON.stringify(payload));
+    try {
+      if (sock.readyState === sock.OPEN) {
+        if (exclude && sock === exclude) continue;
+        sock.send(JSON.stringify(payload));
+      } else {
+        console.warn("[WS] Skipping closed socket");
+      }
+    } catch (err) {
+      console.error("[WS] Broadcast failed:", err);
     }
   }
 }
+

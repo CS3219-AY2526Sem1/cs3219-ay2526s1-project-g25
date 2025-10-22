@@ -105,17 +105,29 @@ export const leaveSession = async (req, res) => {
     delete pres[userId];
     await redisRepo.setJson(`collab:presence:${s.id}`, pres);
 
+    let status = "active";
     if (Object.keys(pres).length === 0) {
       s.status = "ended";
       await redisRepo.setJson(`collab:session:${s.id}`, s);
+      status = "ended";
     }
 
-    return res.json({ ok: true, status: s.status });
+    // ✅ Broadcast session:end to all remaining participants
+    const payload = {
+      type: "session:end",
+      endedBy: userId,
+      message: "Session ended by one of the participants.",
+    };
+    broadcast(s.id, payload, null);
+
+    console.log(`[leaveSession] ${userId} ended session ${s.id}`);
+    return res.json({ ok: true, status });
   } catch (e) {
     console.error("[leaveSession] Error:", e);
     return res.status(500).json({ error: e.message });
   }
 };
+
 
 /**
  * Execute code snippet
