@@ -13,7 +13,7 @@ export default function QuestionPane({ question }) {
     description = "No description available.",
     difficulty = "unknown",
     topic = "General",
-    imageUrl,
+    image_url,
   } = question;
 
   // ✅ Ensure test_cases is always an array
@@ -23,7 +23,21 @@ export default function QuestionPane({ question }) {
       testCases = question.test_cases;
     } else if (typeof question.test_cases === "string") {
       const parsed = JSON.parse(question.test_cases);
-      if (Array.isArray(parsed)) testCases = parsed;
+      if (Array.isArray(parsed)) {
+        testCases = parsed;
+      } else if (parsed && Array.isArray(parsed.cases)) {
+        // Handle nested structure: {"cases": [{"input": [], "expected": ""}]}
+        testCases = parsed.cases.map((testCase: any) => ({
+          input: Array.isArray(testCase.input) ? testCase.input.join('\n') : testCase.input,
+          output: testCase.expected || testCase.output || ''
+        }));
+      }
+    } else if (question.test_cases && Array.isArray(question.test_cases.cases)) {
+      // Handle nested structure from database
+      testCases = question.test_cases.cases.map((testCase: any) => ({
+        input: Array.isArray(testCase.input) ? testCase.input.join('\n') : testCase.input,
+        output: testCase.expected || testCase.output || ''
+      }));
     }
   } catch (err) {
     console.warn("[QuestionPane] Failed to parse test_cases:", err);
@@ -56,11 +70,11 @@ export default function QuestionPane({ question }) {
       </div>
 
       {/* Optional Image */}
-      {imageUrl && (
+      {image_url && (
         <img
           className="rounded-lg mb-6 w-full object-cover border border-slate-700/50"
           alt="Question Image"
-          src={imageUrl}
+          src={image_url}
         />
       )}
 
