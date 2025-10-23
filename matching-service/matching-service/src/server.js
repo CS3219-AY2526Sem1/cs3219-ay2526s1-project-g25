@@ -5,22 +5,39 @@ import cors from "cors";
 import matchRouter from './routes/match.js';
 import { MatchQueue } from './services/matchQueue.js';
 import { initController } from './controllers/matchController.js';
-import { redisClient } from './services/redisClient.js'; // Already connects itself
+import { redisClient, connectRedis } from './services/redisClient.js';
 
 const app = express();
 
 // --- CORS setup ---
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "http://localhost:4000", "http://localhost:4002"],
-    credentials: true,
-  })
-);
+const allowedOrigins = [
+  "http://localhost:3000",  // Login UI
+  "http://localhost:3002",  // Matching UI
+  "http://localhost:4000",  // Collaboration UI
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3002",
+  "http://127.0.0.1:4000"
+];
+
+// Add environment origins if provided
+if (process.env.CORS_ORIGIN) {
+  allowedOrigins.push(...process.env.CORS_ORIGIN.split(','));
+}
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 app.use(express.json({ limit: '1mb' }));
 
 async function startServer() {
   try {
-    // No need to reconnect here
+    // Connect to Redis first
+    await connectRedis();
+    
     const queue = new MatchQueue({
       matchTimeoutMs: Number(process.env.MATCH_TIMEOUT_MS || 120000),
       queueRecalcMs: Number(process.env.QUEUE_RECALC_MS || 5000),
