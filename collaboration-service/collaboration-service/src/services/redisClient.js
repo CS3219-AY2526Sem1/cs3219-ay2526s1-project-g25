@@ -5,20 +5,38 @@ dotenv.config();
 
 const redisUrl = process.env.REDIS_URL;
 
-// Try without TLS first for Redis Cloud
-export const redisClient = createClient({
+if (!redisUrl) {
+  console.error("Redis URL missing from environment variables");
+  throw new Error("REDIS_URL environment variable is required");
+}
+
+// Determine if we need TLS based on the URL protocol
+const isSecure = redisUrl && redisUrl.startsWith('rediss://');
+
+// Configure Redis client based on URL protocol
+const clientConfig = {
   url: redisUrl,
-  socket: {
-    tls: false, // Disable TLS - Redis Cloud sometimes doesn't need it
+};
+
+// Only add socket configuration if using secure connection
+if (isSecure) {
+  clientConfig.socket = {
+    tls: true,
     rejectUnauthorized: false,
-  },
-});
+  };
+}
+
+export const redisClient = createClient(clientConfig);
 
 redisClient.on('connect', () => console.log('[Redis] Connected successfully'));
 redisClient.on('ready', () => console.log('[Redis] Ready for commands'));
 redisClient.on('error', (err) => console.error('[Redis] Error:', err));
 
-// Connect only once
-if (!redisClient.isOpen) {
-  await redisClient.connect();
+// Connect to Redis
+let isConnected = false;
+export async function connectRedis() {
+  if (!isConnected && !redisClient.isOpen) {
+    await redisClient.connect();
+    isConnected = true;
+  }
 }

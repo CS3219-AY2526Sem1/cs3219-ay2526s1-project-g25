@@ -24,29 +24,39 @@ const docOpSchema = z.union([
 
 export function initGateway(wss) {
   wss.on("connection", async (ws, req) => {
+    console.log("[WS] New connection attempt from:", req.headers.origin);
     const url = new URL(req.url, `http://${req.headers.host}`);
     let sessionId = url.searchParams.get("sessionId") || "";
     let userId = url.searchParams.get("userId") || "";
+
+    console.log("[WS] Extracted params - sessionId:", sessionId, "userId:", userId);
 
     if (!sessionId) sessionId = String(req.headers["x-session-id"] || "");
     if (!userId) userId = String(req.headers["x-user-id"] || "");
 
     if (!sessionId || !userId) {
+      console.log("[WS] Missing params - closing connection");
       return ws.close(1008, "missing params");
     }
 
     // Authorization check
     try {
+      console.log("[WS] Checking authorization for user:", userId, "session:", sessionId);
       const allowed = await redisRepo.sIsMember(
         `collab:session:${sessionId}:participants`,
         userId
       );
 
+      console.log("[WS] Redis participants check result:", allowed);
+
       if (!allowed) {
-        // Fallback: if the set doesn’t exist yet, fall back to session record
+        // Fallback: if the set doesn't exist yet, fall back to session record
         const s = await redisRepo.getJson(`collab:session:${sessionId}`);
+        console.log("[WS] Fallback session check - session data:", s);
         const fallback =
           s && (userId === s.userA || userId === s.userB);
+
+        console.log("[WS] Fallback check result:", fallback);
 
         if (!fallback) {
           console.warn(
@@ -167,6 +177,224 @@ export function initGateway(wss) {
           } catch (err) {
             console.error("[WS run:execute]", err);
             ws.send(JSON.stringify({ type: "error", error: err.message }));
+          }
+          return;
+        }
+
+        // ---- Run Test Cases ----
+        if (msg.type === "run:testCases") {
+          try {
+            console.log(`[WS run:testCases] Starting test execution for session ${sessionId}, user ${userId}`);
+            
+            const { testExecutionService } = await import("../services/testExecutionService.js");
+            
+            // Get document content
+            let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
+            if (!doc) doc = await redisRepo.getJson(`document:${sessionId}`);
+            if (!doc) doc = { text: "", version: 0 };
+            
+            const language = msg.language || "javascript";
+            const testCases = msg.testCases || [];
+            
+            console.log(`[WS run:testCases] Code: ${doc.text.substring(0, 100)}...`);
+            console.log(`[WS run:testCases] Language: ${language}`);
+            console.log(`[WS run:testCases] Test cases:`, testCases);
+            
+            if (testCases.length === 0) {
+              console.warn("[WS run:testCases] No test cases provided");
+              ws.send(JSON.stringify({
+                type: "run:testResults",
+                testResults: {
+                  userId,
+                  language,
+                  results: {
+                    totalTests: 0,
+                    passedTests: 0,
+                    failedTests: 0,
+                    testResults: [],
+                    executionTime: 0,
+                    language,
+                    timestamp: Date.now()
+                  },
+                  ts: Date.now(),
+                },
+              }));
+              return;
+            }
+            
+            // Execute test cases
+            console.log(`[WS run:testCases] Executing ${testCases.length} test cases...`);
+            const results = await testExecutionService.executeTestCases(
+              doc.text,
+              language,
+              testCases,
+              {
+                timeoutMs: 5000,
+                memoryLimit: 128000
+              }
+            );
+
+            console.log(`[WS run:testCases] Execution completed:`, results);
+
+            // Store test execution logs
+            await redisRepo.pushToList(`collab:testLogs:${sessionId}`, {
+              userId,
+              code: doc.text,
+              language,
+              results,
+              ts: Date.now(),
+            });
+
+            // Broadcast test results to all clients in the session
+            const payload = {
+              type: "run:testResults",
+              testResults: {
+                userId,
+                language,
+                results,
+                ts: Date.now(),
+              },
+            };
+            console.log(`[WS run:testCases] Broadcasting results to session ${sessionId}:`, payload);
+            broadcast(sessionId, payload, null);
+            
+          } catch (err) {
+            console.error("[WS run:testCases] Error:", err);
+            const errorPayload = {
+              type: "run:testResults",
+              testResults: {
+                userId,
+                language: msg.language || "javascript",
+                results: {
+                  totalTests: 0,
+                  passedTests: 0,
+                  failedTests: 0,
+                  testResults: [],
+                  executionTime: 0,
+                  language: msg.language || "javascript",
+                  timestamp: Date.now(),
+                  error: err.message
+                },
+                ts: Date.now(),
+              },
+            };
+            broadcast(sessionId, errorPayload, null);
+          }
+          return;
+        }
+
+        // ---- Run Code with Custom Input ----
+        if (msg.type === "run:code") {
+          try {
+            console.log(`[WS run:code] Starting custom input execution for session ${sessionId}, user ${userId}`);
+            
+            const { judge0Provider } = await import("../services/judge0Provider.js");
+            
+            // Get document content
+            let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
+            if (!doc) doc = await redisRepo.getJson(`document:${sessionId}`);
+            if (!doc) doc = { text: "", version: 0 };
+            
+            const language = msg.language || "javascript";
+            const stdin = msg.stdin || "";
+            
+            console.log(`[WS run:code] Code: ${doc.text.substring(0, 100)}...`);
+            console.log(`[WS run:code] Language: ${language}`);
+            console.log(`[WS run:code] Stdin: ${stdin}`);
+            
+            const result = await judge0Provider.judge0Run({
+              code: doc.text,
+              language,
+              stdin,
+              timeoutMs: 5000,
+              memoryLimit: 128000
+            });
+
+            console.log(`[WS run:code] Execution result:`, result);
+
+            // Store execution logs
+            await redisRepo.pushToList(`collab:executionLogs:${sessionId}`, {
+              userId,
+              code: doc.text,
+              language,
+              stdin,
+              result,
+              ts: Date.now(),
+            });
+
+            // Broadcast execution result to all clients in the session
+            const payload = {
+              type: "run:result",
+              run: {
+                userId,
+                language,
+                stdin,
+                output: result.stdout,
+                error: result.stderr,
+                time: result.time,
+                memory: result.memory,
+                ts: Date.now(),
+              },
+            };
+            console.log(`[WS run:code] Broadcasting result to session ${sessionId}:`, payload);
+            broadcast(sessionId, payload, null);
+            
+          } catch (err) {
+            console.error("[WS run:code] Error:", err);
+            const errorPayload = {
+              type: "run:result",
+              run: {
+                userId,
+                language: msg.language || "javascript",
+                stdin: msg.stdin || "",
+                output: "",
+                error: err.message,
+                time: 0,
+                memory: 0,
+                ts: Date.now(),
+              },
+            };
+            broadcast(sessionId, errorPayload, null);
+          }
+          return;
+        }
+
+        // ---- Custom Input Update ----
+        if (msg.type === "customInput:update") {
+          try {
+            console.log(`[WS customInput:update] Broadcasting custom input update for session ${sessionId}`);
+            
+            // Broadcast custom input update to all clients in the session
+            const payload = {
+              type: "customInput:update",
+              customInput: msg.customInput,
+              userId: userId,
+              ts: Date.now(),
+            };
+            broadcast(sessionId, payload, null);
+            
+          } catch (err) {
+            console.error("[WS customInput:update] Error:", err);
+          }
+          return;
+        }
+
+        // ---- Language Update ----
+        if (msg.type === "language:update") {
+          try {
+            console.log(`[WS language:update] Broadcasting language update for session ${sessionId}`);
+            
+            // Broadcast language update to all clients in the session
+            const payload = {
+              type: "language:update",
+              language: msg.language,
+              userId: userId,
+              ts: Date.now(),
+            };
+            broadcast(sessionId, payload, null);
+            
+          } catch (err) {
+            console.error("[WS language:update] Error:", err);
           }
           return;
         }

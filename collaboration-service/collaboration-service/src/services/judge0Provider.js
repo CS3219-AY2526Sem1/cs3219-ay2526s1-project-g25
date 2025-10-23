@@ -24,14 +24,39 @@ if (isRapid) {
 
 // Map your supported languages to Judge0 language IDs (confirm with your instance /languages)
 const LANG_MAP = {
-  javascript: 63,  // Node.js 18
-  typescript: 74,
-  python: 71,      // Python 3.11
-  java: 62,
-  c: 50,
-  cpp: 54,
-  go: 60,
-  rust: 73,
+  'python': 71,      // Python 3.8.1
+  'javascript': 63,  // JavaScript (Node.js 12.14.0)
+  'typescript': 74,  // TypeScript 3.7.4
+  'java': 62,        // Java (OpenJDK 13.0.1)
+  'cpp': 52,         // C++ (GCC 7.4.0)
+  'c': 48,           // C (GCC 7.4.0)
+  'csharp': 51,      // C# (Mono 6.6.0.161)
+  'go': 60,          // Go 1.13.5
+  'rust': 73,        // Rust 1.40.0
+  'php': 68,         // PHP 7.4.1
+  'ruby': 72,        // Ruby 2.7.0
+  'swift': 83,       // Swift 5.2.3
+  'kotlin': 78,      // Kotlin 1.3.70
+  'scala': 81,       // Scala 2.13.2
+  'perl': 85,        // Perl 5.28.1
+  'r': 80,           // R 4.0.0
+  'dart': 84,        // Dart 2.7.2
+  'lua': 64,         // Lua 5.3.5
+  'haskell': 61,     // Haskell (GHC 8.8.1)
+  'clojure': 86,     // Clojure 1.10.1
+  'elixir': 57,      // Elixir 1.9.4
+  'erlang': 58,      // Erlang (OTP 22.2)
+  'julia': 82,       // Julia 1.0.5
+  'ocaml': 65,       // OCaml 4.09.0
+  'fsharp': 87,      // F# 4.7
+  'vbnet': 88,       // VB.NET 4.0.1
+  'assembly': 45,    // Assembly (NASM 2.14.02)
+  'bash': 46,        // Bash 5.0.0
+  'basic': 47,       // Basic (FBC 1.07.1)
+  'fortran': 59,     // Fortran (GFortran 9.2.0)
+  'pascal': 67,      // Pascal (FPC 3.0.4)
+  'prolog': 69,      // Prolog (GNU Prolog 1.4.5)
+  'sql': 89,         // SQL (SQLite 3.27.2)
 };
 
 const b64 = (s='') => Buffer.from(s, 'utf8').toString('base64');

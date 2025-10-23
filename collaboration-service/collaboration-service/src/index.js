@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import 'dotenv/config';
 import app from './app.js';
 import { initGateway } from './ws/gateway.js';
-import "./services/redisClient.js";
+import { connectRedis } from "./services/redisClient.js";
 
 
 dotenv.config();
@@ -15,7 +15,13 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 initGateway(wss);
 
-server.listen(port, () => {
-  console.log(`collaboration-service listening on http://localhost:${port}`);
-  console.log(`WebSocket at ws://localhost:${port}/ws?sessionId=...&userId=...`);
+// Connect to Redis before starting server
+connectRedis().then(() => {
+  server.listen(port, () => {
+    console.log(`collaboration-service listening on http://localhost:${port}`);
+    console.log(`WebSocket at ws://localhost:${port}/ws?sessionId=...&userId=...`);
+  });
+}).catch(err => {
+  console.error('Failed to connect to Redis:', err);
+  process.exit(1);
 });
