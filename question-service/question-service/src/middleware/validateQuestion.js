@@ -38,12 +38,12 @@ export function validateCreateQuestion(req, res, next) {
 export function validateUpdateQuestion(req, res, next) {
   // For updates: require that if the field exists, it is non-empty; id must not be changed (enforced elsewhere).
   const payload = req.body;
-  const allowedFields = ['title','description','difficulty','topic','test_cases'];
+  const allowedFields = ['title','description','difficulty','topic','test_cases','image_url'];
 
   // If no allowed fields present -> bad request
   const provided = Object.keys(payload).filter(k => allowedFields.includes(k));
   if (provided.length === 0) {
-    return res.status(400).json({ error: 'No updatable fields provided. Allowed: title, description, difficulty, topic, test_cases' });
+    return res.status(400).json({ error: 'No updatable fields provided. Allowed: title, description, difficulty, topic, test_cases, image_url' });
   }
 
   // Validate any provided fields

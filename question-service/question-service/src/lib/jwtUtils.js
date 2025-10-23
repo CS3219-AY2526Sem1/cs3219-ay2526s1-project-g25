@@ -5,7 +5,11 @@ import jwt from 'jsonwebtoken';
  * This maintains consistency with the user-service authentication
  */
 
-const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'dev_access_secret';
+const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET;
+
+if (!ACCESS_SECRET) {
+  throw new Error('JWT_ACCESS_TOKEN_SECRET environment variable is required');
+}
 
 /**
  * Verify JWT token

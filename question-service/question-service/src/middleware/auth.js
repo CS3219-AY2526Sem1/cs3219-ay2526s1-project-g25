@@ -33,7 +33,7 @@ export function authenticateToken(req, res, next) {
 export function requireAdmin(req, res, next) {
   if (!req.roles || !isAdmin(req.roles)) {
     return res.status(403).json({ 
-      message: 'Forbidden: Admin access required' 
+      message: 'Forbidden: Admin access required'
     });
   }
   next();

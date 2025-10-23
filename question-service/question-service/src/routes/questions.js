@@ -18,11 +18,13 @@ const router = express.Router();
 // Public endpoints - anyone can view questions
 router.get('/', listQuestions);
 router.get('/random', getRandomQuestion);
-router.get('/:id', getQuestionById);
 
 // Admin-only endpoints - require authentication and admin role
 // Image signature - admin only (needed before uploading images to Cloudinary)
 router.get('/signature', authenticateToken, requireAdmin, getImageSignature);
+
+// Specific routes must come after general ones
+router.get('/:id', getQuestionById);
 
 // Question management - admin only
 router.post('/', authenticateToken, requireAdmin, validateCreateQuestion, createQuestion);
