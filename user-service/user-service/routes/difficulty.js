@@ -9,9 +9,6 @@ import {
 
 const router = express.Router()
 
-// All difficulty routes require authentication
-router.use(requireAuth)
-
 /**
  * @route   POST /api/difficulty/solve
  * @desc    Mark a question as solved and increment difficulty count

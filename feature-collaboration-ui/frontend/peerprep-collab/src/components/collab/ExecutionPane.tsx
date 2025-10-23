@@ -55,7 +55,7 @@ export default function ExecutionPane() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full h-1/4 bg-slate-900 border border-slate-700/50 rounded-2xl shadow-xl overflow-hidden flex flex-col"
+      className="h-full w-full bg-slate-900 border border-slate-700/50 rounded-2xl shadow-xl overflow-hidden flex flex-col"
     >
       {/* Header */}
       <div className="px-6 py-4 border-b border-slate-700/50 bg-slate-800/50 flex items-center gap-2">

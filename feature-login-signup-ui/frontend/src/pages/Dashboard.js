@@ -55,7 +55,7 @@ function Dashboard() {
             <button className="card-button" onClick={handleStartMatching}>Start Matching</button>
           </div>
 
-          <div className="dashboard-card">
+          {/* <div className="dashboard-card">
             <div className="card-icon">💻</div>
             <h3>Practice Problems</h3>
             <p>Browse and solve coding challenges</p>
@@ -67,7 +67,7 @@ function Dashboard() {
             <h3>Your Progress</h3>
             <p>Track your improvement over time</p>
             <button className="card-button">View Stats</button>
-          </div>
+          </div> */}
 
           <div className="dashboard-card">
             <div className="card-icon">👤</div>

@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser'
 import authRoutes from '../routes/auth.js'
 import userRoutes from '../routes/user.js'
 import tokenRoutes from '../routes/token.js'
+import difficultyRoutes from '../routes/difficulty.js'
+
 const PORT = process.env.PORT || 3001
 
 const app = express()
@@ -18,6 +20,7 @@ app.get('/health', (req, res) => res.status(200).send('OK'));
 app.use('/auth', authRoutes)
 app.use('/users', userRoutes)
 app.use('/api/token', tokenRoutes)
+app.use('/difficulty', difficultyRoutes)
 
 app.get('/', (req, res) => res.json({ service: 'user-service', ok: true }))
 

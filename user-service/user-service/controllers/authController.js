@@ -276,7 +276,7 @@ export const confirmPasswordReset = async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
-        'apikey': process.env.SUPABASE_ANON_KEY
+        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY
       },
       body: JSON.stringify({
         password: newPassword

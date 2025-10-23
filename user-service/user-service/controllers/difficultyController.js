@@ -11,27 +11,29 @@ import { incrementDifficulty, getDifficultyCounts, resetDifficultyCounts, batchI
  */
 export const markQuestionSolved = async (req, res) => {
   try {
-    const { difficulty } = req.body
-    const userId = req.userId
+    const { difficulty, userId: bodyUserId } = req.body;
+    const userId = req.userId || bodyUserId;
 
-    if (!difficulty) {
-      return res.status(400).json({ message: 'Difficulty level is required' })
-    }
+    if (!userId)
+      return res.status(400).json({ message: "User ID required" });
+    if (!difficulty)
+      return res.status(400).json({ message: "Difficulty level required" });
 
-    const updatedCounts = await incrementDifficulty(userId, difficulty)
-    
+    const updatedCounts = await incrementDifficulty(userId, difficulty);
+
     res.json({
       message: `${difficulty} question solved!`,
-      difficulty_counts: updatedCounts
-    })
+      difficulty_counts: updatedCounts,
+    });
   } catch (error) {
-    console.error('[markQuestionSolved] Error:', error)
-    res.status(500).json({ 
-      message: 'Failed to update difficulty count',
-      error: error.message 
-    })
+    console.error("[markQuestionSolved] Error:", error);
+    res.status(500).json({
+      message: "Failed to update difficulty count",
+      error: error.message,
+    });
   }
-}
+};
+
 
 /**
  * Get difficulty counts for the authenticated user

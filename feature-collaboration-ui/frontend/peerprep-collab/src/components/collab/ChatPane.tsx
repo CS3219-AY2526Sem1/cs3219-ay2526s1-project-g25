@@ -42,6 +42,10 @@ export default function ChatPane() {
         setMessages(msg.chat);
       }
     }
+    if (msg.type === "session:end") {
+        alert("Your partner has ended the session. Returning to dashboard...");
+        window.location.href = "http://localhost:3000/dashboard";
+}
   });
 
   setSendMsg(() => send);
@@ -153,7 +157,7 @@ export default function ChatPane() {
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="w-1/3 h-full bg-slate-900 border border-slate-700/50 rounded-2xl shadow-xl flex flex-col overflow-hidden"
+      className="h-full w-full bg-slate-900 border border-slate-700/50 rounded-2xl shadow-xl flex flex-col overflow-hidden"
     >
       {/* Tabs */}
       <div className="flex border-b border-slate-700/50 bg-slate-800/50">

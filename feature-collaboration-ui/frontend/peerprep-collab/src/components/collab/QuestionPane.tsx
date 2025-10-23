@@ -3,9 +3,11 @@
 import TagPill from "./TagPill";
 import TestCase from "./TestCase";
 import { motion } from "framer-motion";
-import { BookOpen } from "lucide-react";
+import { BookOpen, LogOut} from "lucide-react";
+import { useRouter } from "next/navigation";
 
-export default function QuestionPane({ question }) {
+export default function QuestionPane({ question, sendMsg, sessionId, userId}) {
+const router = useRouter();
   if (!question) return null;
 
   const {
@@ -43,16 +45,52 @@ export default function QuestionPane({ question }) {
     console.warn("[QuestionPane] Failed to parse test_cases:", err);
   }
 
+const handleEndSession = async () => {
+  if (!confirm("Are you sure you want to end this session for both users?")) return;
+
+  try {
+    console.log("[UI] Ending session...");
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}/leave`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      }
+    );
+
+    const data = await res.json();
+    console.log("[UI] Leave response:", data);
+
+    alert("Session ended. Redirecting to dashboard...");
+    router.push(process.env.NEXT_PUBLIC_DASHBOARD_URL!);
+  } catch (err) {
+    console.error("[UI] Failed to end session:", err);
+  }
+};
+
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="w-1/3 h-full bg-slate-900 border border-slate-700/50 rounded-2xl p-6 shadow-xl overflow-y-auto"
+      className="h-full w-full bg-slate-900 border border-slate-700/50 rounded-2xl p-6 shadow-xl overflow-y-auto"
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <BookOpen className="w-5 h-5 text-purple-400" />
-        <h2 className="text-2xl font-bold text-white">{title}</h2>
+
+      {/* Header with End Session */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-purple-400" />
+          <h2 className="text-2xl font-bold text-white">{title}</h2>
+        </div>
+        <button
+          onClick={handleEndSession}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/30 hover:bg-red-600/50 text-red-400 text-xs font-semibold rounded-lg border border-red-500/40 transition-all"
+        >
+          <LogOut className="w-4 h-4" />
+          End
+        </button>
       </div>
 
       {/* Tags */}
