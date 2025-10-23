@@ -10,7 +10,8 @@ function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
     description: '',
     difficulty: 'easy',
     topic: '',
-    test_cases: '{\n  "cases": [\n    {\n      "input": [],\n      "expected": ""\n    }\n  ]\n}'
+    test_cases: '{\n  "cases": [\n    {\n      "input": "3 5",\n      "output": "8"\n    },\n    {\n      "input": "10 20",\n      "output": "30"\n    }\n  ]\n}',
+    image_url: ''
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -19,23 +20,19 @@ function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
 
   useEffect(() => {
     if (editingQuestion) {
-      // Extract image URL from description if exists
-      const imgMatch = editingQuestion.description.match(/!\[.*?\]\((.*?)\)/);
-      let cleanDescription = editingQuestion.description;
-      
-      if (imgMatch) {
-        setImagePreview(imgMatch[1]);
-        // Remove the image markdown from description
-        cleanDescription = editingQuestion.description.replace(/\n*!\[.*?\]\(.*?\)\n*/g, '').trim();
-      }
-      
       setFormData({
         title: editingQuestion.title,
-        description: cleanDescription,
+        description: editingQuestion.description,
         difficulty: editingQuestion.difficulty,
         topic: editingQuestion.topic,
-        test_cases: JSON.stringify(editingQuestion.test_cases, null, 2)
+        test_cases: JSON.stringify(editingQuestion.test_cases, null, 2),
+        image_url: editingQuestion.image_url || ''
       });
+      
+      // Set image preview if image_url exists
+      if (editingQuestion.image_url) {
+        setImagePreview(editingQuestion.image_url);
+      }
     } else {
       resetForm();
     }
@@ -47,7 +44,8 @@ function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
       description: '',
       difficulty: 'easy',
       topic: '',
-      test_cases: '{\n  "cases": [\n    {\n      "input": [],\n      "expected": ""\n    }\n  ]\n}'
+      test_cases: '{\n  "cases": [\n    {\n      "input": "3 5",\n      "output": "8"\n    },\n    {\n      "input": "10 20",\n      "output": "30"\n    }\n  ]\n}',
+      image_url: ''
     });
     setImageFile(null);
     setImagePreview(null);
@@ -82,18 +80,27 @@ function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
       formData.append('signature', signature);
       formData.append('api_key', api_key);
 
-      // Use regular axios for Cloudinary upload (external API, not our API)
-      const uploadResponse = await axios.post(
+      // Use fetch API for Cloudinary upload (completely bypasses axios configuration)
+      const uploadResponse = await fetch(
         `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`,
-        formData
+        {
+          method: 'POST',
+          body: formData,
+          // No headers needed - fetch handles multipart/form-data automatically
+        }
       );
 
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      }
+
+      const uploadData = await uploadResponse.json();
       setUploading(false);
-      return uploadResponse.data.secure_url;
+      return uploadData.secure_url;
     } catch (error) {
       setUploading(false);
       console.error('Error uploading image:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to upload image';
+      const errorMsg = error.message || 'Failed to upload image';
       toast.error(errorMsg);
       throw error;
     }
@@ -115,27 +122,18 @@ function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
       }
 
       // Upload image if new one is selected
-      let imageUrl = null;
+      let imageUrl = formData.image_url;
       if (imageFile) {
         imageUrl = await uploadImageToCloudinary();
-      } else if (imagePreview) {
-        // Keep existing image URL
-        imageUrl = imagePreview;
-      }
-
-      // Prepare description with image
-      let description = formData.description;
-      if (imageUrl) {
-        // Always append image at the end
-        description = `${formData.description}\n\n![Question Image](${imageUrl})`;
       }
 
       const questionData = {
         title: formData.title,
-        description: description,
+        description: formData.description,
         difficulty: formData.difficulty,
         topic: formData.topic,
-        test_cases: testCases
+        test_cases: testCases,
+        image_url: imageUrl
       };
 
       if (editingQuestion) {
@@ -254,15 +252,19 @@ function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label>Test Cases * (JSON format)</label>
+          <label>Test Cases * (Kattis-style stdin/stdout format)</label>
           <textarea
             value={formData.test_cases}
             onChange={(e) => setFormData({ ...formData, test_cases: e.target.value })}
-            placeholder='{"cases": [{"input": [2, 7, 11, 15], "target": 9, "expected": [0, 1]}]}'
-            rows="4"
+            placeholder='{"cases": [{"input": "3 5", "output": "8"}, {"input": "10 20", "output": "30"}]}'
+            rows="6"
             required
             className="code-input"
           />
+          <div className="text-sm text-gray-600 mt-1">
+            <strong>Format:</strong> Each test case has "input" (stdin) and "output" (expected stdout). 
+            <br />Example: Input "3 5" should produce output "8" for an addition problem.
+          </div>
         </div>
 
         <div className="form-actions">

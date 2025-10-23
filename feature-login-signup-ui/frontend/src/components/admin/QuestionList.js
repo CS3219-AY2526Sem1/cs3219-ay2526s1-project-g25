@@ -67,6 +67,15 @@ function QuestionList({ questions, loading, onEdit, onDelete }) {
               </div>
 
               <div className="question-description">
+                {question.image_url && (
+                  <div className="question-image">
+                    <img 
+                      src={question.image_url} 
+                      alt="Question" 
+                      style={{ maxWidth: '100%', height: 'auto', marginBottom: '10px' }}
+                    />
+                  </div>
+                )}
                 {expandedQuestion === question.id ? (
                   <ReactMarkdown>{question.description}</ReactMarkdown>
                 ) : (

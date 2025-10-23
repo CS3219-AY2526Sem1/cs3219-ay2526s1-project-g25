@@ -2,7 +2,7 @@ import axios from 'axios';
 import authService from './authService';
 import toast from 'react-hot-toast';
 
-const QUESTION_SERVICE_URL = process.env.REACT_APP_QUESTION_SERVICE_URL || 'http://localhost:4000';
+const QUESTION_SERVICE_URL = process.env.REACT_APP_QUESTION_SERVICE_URL || 'http://localhost:5050';
 
 // Create axios instance for question service
 const apiClient = axios.create({
