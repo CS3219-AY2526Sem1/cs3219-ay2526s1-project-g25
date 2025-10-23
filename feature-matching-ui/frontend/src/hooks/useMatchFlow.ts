@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 
 export function useMatchFlow(userId: string | null) {
@@ -53,27 +53,32 @@ export function useMatchFlow(userId: string | null) {
       // Queue flow: set timers and begin polling
       if (data.status === "queued") {
         const expiresAt = data.expiresAt;
-        const remainingMs = expiresAt - Date.now();
-        setTimeLeft(Math.floor(remainingMs / 1000));
+        
+        // Only calculate time on client side to avoid hydration mismatch
+        if (typeof window !== 'undefined') {
+          const remainingMs = expiresAt - Date.now();
+          setTimeLeft(Math.floor(remainingMs / 1000));
+          
+          // Countdown timer for UI
+          const countdown = setInterval(() => {
+            setTimeLeft((prev) => {
+              if (prev === null || prev <= 1) {
+                clearInterval(countdown);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+
+          // Timeout after queue duration
+          timeoutRef.current = setTimeout(() => {
+            clearInterval(pollRef.current!);
+            setPhase("timeout");
+            console.log("[useMatchFlow] Queue timed out");
+          }, remainingMs || 120000);
+        }
+        
         startPolling();
-
-        // Countdown timer for UI
-        const countdown = setInterval(() => {
-          setTimeLeft((prev) => {
-            if (prev === null || prev <= 1) {
-              clearInterval(countdown);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-
-        // Timeout after queue duration
-        timeoutRef.current = setTimeout(() => {
-          clearInterval(pollRef.current!);
-          setPhase("timeout");
-          console.log("[useMatchFlow] Queue timed out");
-        }, remainingMs || 120000);
       }
 
       // Immediate match (edge case)

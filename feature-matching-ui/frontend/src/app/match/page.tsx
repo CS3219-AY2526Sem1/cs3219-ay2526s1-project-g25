@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Target, Zap, Sparkles } from "lucide-react"
 import CodeBackground from "@/components/match/CodeBackground"
@@ -10,9 +10,28 @@ import { useMatchFlow } from "@/hooks/useMatchFlow"
 import { getAccessToken, parseJwt } from "@/lib/auth"
 
 export default function MatchPage() {
-  const token = getAccessToken()
-  const payload = token ? parseJwt<{ userId: number }>(token) : null
-  const userId = payload?.userId ? String(payload.userId) : null
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    // Mark as client-side rendered
+    setIsClient(true)
+    
+    // Only run on client side to avoid hydration mismatch
+    const token = getAccessToken()
+    console.log('[MatchPage] Token found:', token ? token.substring(0, 20) + '...' : 'None');
+    
+    if (token) {
+      const payload = parseJwt<{ userId: number }>(token)
+      console.log('[MatchPage] Token payload:', payload);
+      setUserId(payload?.userId ? String(payload.userId) : null)
+    } else {
+      console.log('[MatchPage] No token found, using demo user for testing');
+      // For demo purposes, use a demo user ID
+      // TODO: Re-enable proper authentication after demo
+      setUserId("123");
+    }
+  }, [])
 
   const { phase, matchData, join, leave, timeLeft } = useMatchFlow(userId)
   const [topics, setTopics] = useState<string[]>([])
@@ -27,6 +46,15 @@ export default function MatchPage() {
   }
 
   const isMatchingActive = phase === "searching" || phase === "matched"
+
+  // Show loading state during hydration
+  if (!isClient) {
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 flex items-center justify-center">
+        <div className="text-purple-300 text-lg">Loading...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950">
@@ -49,7 +77,7 @@ export default function MatchPage() {
           </h1>
         </div>
 
-        {userId && (
+        {isClient && userId && (
           <div className="text-purple-300 text-sm font-medium bg-purple-900/30 px-4 py-2 rounded-lg border border-purple-500/30">
             User: {userId}
           </div>

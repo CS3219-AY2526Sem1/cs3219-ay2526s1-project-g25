@@ -15,6 +15,17 @@ export function getAccessToken(): string | null {
   syncTokenFromQuery();
 
   const token = localStorage.getItem("accessToken");
+  
+  // If no token in localStorage, try to get from URL params
+  if (!token) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get("token");
+    if (urlToken) {
+      localStorage.setItem("accessToken", urlToken);
+      return urlToken;
+    }
+  }
+  
   return token || null;
 }
 

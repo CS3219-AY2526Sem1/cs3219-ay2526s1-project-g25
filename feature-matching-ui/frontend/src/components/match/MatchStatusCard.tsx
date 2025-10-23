@@ -42,12 +42,16 @@ try {
 const finalUserId = userIdFromToken || matchData.userId || "guest";
 
 // ✅ Always ensure both parameters exist
+// Get the auth token to pass to collaboration UI
+const authToken = localStorage.getItem("accessToken");
+
 const collabUrl = `${baseUrl.replace(/\/$/, "")}/collab?sessionId=${
   matchData.sessionId
-}&userId=${finalUserId}`;
+}&userId=${finalUserId}${authToken ? `&token=${encodeURIComponent(authToken)}` : ''}`;
 
 console.log(`[MatchStatusCard] Redirecting to: ${collabUrl}`);
-router.push(collabUrl);
+// Use window.location.href for cross-domain navigation
+window.location.href = collabUrl;
 
 }
 
@@ -286,6 +290,16 @@ router.push(collabUrl);
               <p className="text-white font-bold text-xl">
                 {matchData.question.title || "Untitled Question"}
               </p>
+
+              {matchData.question.image_url && (
+                <div className="mb-4">
+                  <img 
+                    src={matchData.question.image_url} 
+                    alt="Question" 
+                    className="max-w-full h-auto rounded-lg border border-slate-600"
+                  />
+                </div>
+              )}
 
               {matchData.question.description && (
                 <p className="text-slate-300 whitespace-pre-wrap">
