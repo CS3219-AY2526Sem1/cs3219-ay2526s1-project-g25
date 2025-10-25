@@ -1,3 +1,4 @@
+
 "use client";
 
 import { motion } from "framer-motion";
@@ -364,31 +365,32 @@ export default function CodePane({ question }: { question: any }) {
         }
     }
 
-    async function handleRunWithCustomInput() {
+        async function handleRunWithCustomInput() {
+        if (!customInput.trim()) {
+            console.warn("[CodePane] No custom input provided");
+            return;
+        }
+
         try {
-            if (!customInput.trim()) {
-                console.warn("[CodePane] No custom input provided");
-                return;
-            }
-            
-            console.log("[CodePane] Running code with custom input:", customInput);
-            
-            // Broadcast custom input to other users for visibility
+            setOutput("Running with custom input...");
+            setTests([]);
+
+            // Broadcast to others
             sendMsg({
                 type: "customInput:update",
-                customInput: customInput,
-                userId: userId
+                customInput,
+                userId
             });
-            
-            // Send custom input execution via WebSocket
-            sendMsg({
-                type: "run:code",
-                language: language,
-                stdin: customInput
-            });
-            
+
+            // Use executeCode API and pass stdin
+            const res = await executeCode(sessionId, code, language, customInput);
+
+            const out = res?.run?.output || res.output || res.stderr || "[NO OUTPUT]";
+
+            setOutput(`Custom Input:\n${customInput}\n\nOutput:\n${out}`);
         } catch (e: any) {
-            console.error("Custom input execution failed:", e);
+            console.error("[CodePane] Custom input execution failed:", e);
+            setOutput("Execution failed: " + e.message);
         }
     }
 
@@ -433,7 +435,7 @@ export default function CodePane({ question }: { question: any }) {
                    )}
                </div>
               <div className="flex items-center gap-3">
-                  <motion.button
+                  {/* <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleRun}
@@ -441,7 +443,7 @@ export default function CodePane({ question }: { question: any }) {
                   >
                       <Play className="w-4 h-4" />
                       Run Code
-                  </motion.button>
+                  </motion.button> */}
                   
                   <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -463,7 +465,7 @@ export default function CodePane({ question }: { question: any }) {
           </div>
 
           {/* Custom Input Section */}
-          <div className="px-6 py-3 border-b border-slate-700/50 bg-slate-800/30">
+          {/* <div className="px-6 py-3 border-b border-slate-700/50 bg-slate-800/30">
               <div className="flex items-center gap-3">
                   <label className="text-sm font-medium text-slate-300">Custom Input:</label>
                   <input
@@ -489,7 +491,7 @@ export default function CodePane({ question }: { question: any }) {
                       Last run by User {customInputUser}
                   </div>
               )}
-          </div>
+          </div> */}
 
           {/* Code Editor */}
           <div className="flex-1 p-6 bg-slate-950">
@@ -504,4 +506,3 @@ export default function CodePane({ question }: { question: any }) {
       </motion.div>
   );
 }
-

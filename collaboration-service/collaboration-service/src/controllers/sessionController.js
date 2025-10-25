@@ -35,7 +35,7 @@ export const createSession = async (req, res) => {
     const markSolvedUrl = `${process.env.NEXT_PUBLIC_USER_SERVICE_URL}/difficulty/solve`;
 
     try {
-      // ✅ Increment for both users in parallel
+      //Increment for both users in parallel
       await Promise.all([
         axios.post(markSolvedUrl, {
           userId: s.userA,
