@@ -291,16 +291,6 @@ window.location.href = collabUrl;
                 {matchData.question.title || "Untitled Question"}
               </p>
 
-              {matchData.question.image_url && (
-                <div className="mb-4">
-                  <img 
-                    src={matchData.question.image_url} 
-                    alt="Question" 
-                    className="max-w-full h-auto rounded-lg border border-slate-600"
-                  />
-                </div>
-              )}
-
               {matchData.question.description && (
                 <p className="text-slate-300 whitespace-pre-wrap">
                   {matchData.question.description}
