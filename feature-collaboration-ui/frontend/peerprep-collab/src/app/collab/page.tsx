@@ -18,7 +18,7 @@ export default function CollabPage() {
   const params = useSearchParams();
   const router = useRouter();
   const sessionId = params.get("sessionId");
-  const userId = params.get("userId");
+  const urlUserId = params.get("userId");
   const [question, setQuestion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -57,16 +57,16 @@ export default function CollabPage() {
     // Get user authentication - check URL params first, then localStorage
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get("token");
-    const urlUserId = urlParams.get("userId");
+    const urlUserIdFromParams = urlParams.get("userId");
     
-    console.log('[CollabPage] URL params:', { urlToken: urlToken ? 'present' : 'missing', urlUserId });
+    console.log('[CollabPage] URL params:', { urlToken: urlToken ? 'present' : 'missing', urlUserIdFromParams });
     
     if (urlToken) {
       // Token passed via URL - store it and use it
       console.log('[CollabPage] Using token from URL');
       localStorage.setItem("accessToken", urlToken);
       const payload = parseJwt<{ userId: number }>(urlToken);
-      setUserId(payload?.userId ? String(payload.userId) : urlUserId);
+      setUserId(payload?.userId ? String(payload.userId) : urlUserIdFromParams);
     } else if (isAuthenticated()) {
       // No URL token, check localStorage
       console.log('[CollabPage] Using token from localStorage');
@@ -75,10 +75,10 @@ export default function CollabPage() {
         const payload = parseJwt<{ userId: number }>(token);
         setUserId(payload?.userId ? String(payload.userId) : null);
       }
-    } else if (urlUserId) {
+    } else if (urlUserIdFromParams) {
       // Fallback to URL userId if no token
       console.log('[CollabPage] Using userId from URL as fallback');
-      setUserId(urlUserId);
+      setUserId(urlUserIdFromParams);
     } else {
       console.log('[CollabPage] No authentication found');
     }
