@@ -18,10 +18,10 @@ export default function CollabPage() {
   const params = useSearchParams();
   const router = useRouter();
   const sessionId = params.get("sessionId");
-  const urlUserId = params.get("userId");
+  const paramUserId = params.get("userId");
   const [question, setQuestion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(paramUserId || null); // initialize from param safely
   const [isClient, setIsClient] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const [sendMsg, setSendMsg] = useState<(msg: any) => void>(() => () => {});
