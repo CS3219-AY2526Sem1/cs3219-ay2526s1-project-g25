@@ -8,13 +8,9 @@ import { useCollabStore } from "@/lib/collabStore";
 import { getParams } from "@/lib/helpers";
 import {connectCollabSocket} from "@/lib/collabSocket";
 import { diffChars } from "diff";
+import MonacoEditor from "./MonacoEditor";
 
-// Returns the diff index between two strings, used for updating text via websocket.
-function findDiffIndex(str1: string, str2: string): number {
-    let i = 0;
-    while (i < str1.length && i < str2.length && str1[i] == str2[i]) { i++; }
-    return i;
-}
+
 
 export default function CodePane({ question }: { question: any }) {
     const [language, setLanguage] = useState("python");
@@ -32,47 +28,45 @@ export default function CodePane({ question }: { question: any }) {
         setTestExecutionResults, 
         isExecutingTests,
         setIsExecutingTests,
-        currentLanguage,
         setCurrentLanguage 
     } = useCollabStore();
 
     const { userId, sessionId } = getParams();
 
 
-    const boilerplates: Record<string, string> = {
-        python: `def solve():\n    # write your code here\n    pass\n\nif __name__ == "__main__":\n    solve()`,
-        "c++": `#include <bits/stdc++.h>\nusing namespace std;\nint main(){\n    // write code here\n    return 0;\n}`,
-        java: `class Main {\n    public static void main(String[] args) {\n        // write code here\n    }\n}`,
-        javascript: `function solve(){\n  // write code here\n}\nsolve();`,
-        typescript: `function solve(): void {\n  // write code here\n}\nsolve();`,
-        c: `#include <stdio.h>\nint main() {\n    // write code here\n    return 0;\n}`,
-        csharp: `using System;\nclass Program {\n    static void Main() {\n        // write code here\n    }\n}`,
-        go: `package main\n\nimport "fmt"\n\nfunc main() {\n    // write code here\n}`,
-        rust: `fn main() {\n    // write code here\n}`,
-        php: `<?php\n// write code here\n?>`,
-        ruby: `# write code here`,
-        swift: `import Foundation\n\n// write code here`,
-        kotlin: `fun main() {\n    // write code here\n}`,
-        scala: `object Main {\n    def main(args: Array[String]): Unit = {\n        // write code here\n    }\n}`,
-        perl: `#!/usr/bin/perl\n# write code here`,
-        r: `# write code here`,
-        dart: `void main() {\n    // write code here\n}`,
-        lua: `-- write code here`,
-        haskell: `main = do\n    -- write code here`,
-        clojure: `;; write code here`,
-        elixir: `# write code here`,
-        erlang: `% write code here`,
-        julia: `# write code here`,
-        ocaml: `(* write code here *)`,
-        fsharp: `// write code here`,
-        vbnet: `Module Module1\n    Sub Main()\n        ' write code here\n    End Sub\nEnd Module`,
-        assembly: `; write code here`,
-        bash: `#!/bin/bash\n# write code here`,
-        basic: `10 REM write code here`,
-        fortran: `program main\n    ! write code here\nend program main`,
-        pascal: `program main;\nbegin\n    { write code here }\nend.`,
-        prolog: `% write code here`,
-        sql: `-- write code here`,
+
+    // Map your language values to Monaco Editor language IDs
+    const getMonacoLanguage = (lang: string): string => {
+        const langMap: Record<string, string> = {
+            'python': 'python',
+            'javascript': 'javascript',
+            'typescript': 'typescript',
+            'java': 'java',
+            'c': 'c',
+            'cpp': 'cpp',
+            'csharp': 'csharp',
+            'go': 'go',
+            'rust': 'rust',
+            'php': 'php',
+            'ruby': 'ruby',
+            'swift': 'swift',
+            'kotlin': 'kotlin',
+            'scala': 'scala',
+            'perl': 'perl',
+            'r': 'r',
+            'dart': 'dart',
+            'lua': 'lua',
+            'haskell': 'haskell',
+            'clojure': 'clojure',
+            'elixir': 'elixir',
+            'julia': 'julia',
+            'fsharp': 'fsharp',
+            'vbnet': 'vb',
+            'bash': 'shell',
+            'pascal': 'pascal',
+            'sql': 'sql',
+        };
+        return langMap[lang] || 'plaintext';
     };
 
     const languageOptions = [
@@ -82,7 +76,7 @@ export default function CodePane({ question }: { question: any }) {
         { value: 'java', label: 'Java' },
         { value: 'c', label: 'C (GCC)' },
         { value: 'cpp', label: 'C++ (GCC)' },
-        { value: 'csharp', label: 'C# (Mono)' },
+        { value: 'csharp', label: 'C#' },
         { value: 'go', label: 'Go' },
         { value: 'rust', label: 'Rust' },
         { value: 'php', label: 'PHP' },
@@ -97,25 +91,17 @@ export default function CodePane({ question }: { question: any }) {
         { value: 'haskell', label: 'Haskell' },
         { value: 'clojure', label: 'Clojure' },
         { value: 'elixir', label: 'Elixir' },
-        { value: 'erlang', label: 'Erlang' },
         { value: 'julia', label: 'Julia' },
-        { value: 'ocaml', label: 'OCaml' },
         { value: 'fsharp', label: 'F#' },
         { value: 'vbnet', label: 'VB.NET' },
-        { value: 'assembly', label: 'Assembly (NASM)' },
         { value: 'bash', label: 'Bash' },
-        { value: 'basic', label: 'BASIC' },
-        { value: 'fortran', label: 'Fortran' },
         { value: 'pascal', label: 'Pascal' },
-        { value: 'prolog', label: 'Prolog' },
         { value: 'sql', label: 'SQL' },
     ];
 
+
+
     useEffect(() => {
-        // Set initial code if empty
-        if (!code) {
-            setCode(boilerplates[language]);
-        }
         setCurrentLanguage(language);
 
         const { send, executeTestCases } = connectCollabSocket(sessionId, userId, (msg) => {
@@ -167,7 +153,7 @@ export default function CodePane({ question }: { question: any }) {
                 // Don't update if it's from the current user
                 if (msg.userId !== userId) {
                     setLanguage(msg.language);
-                    setCode(boilerplates[msg.language]);
+                    setCode(""); // Clear code when language changes
                     setLanguageChangeUser(msg.userId);
                     
                     // Clear the indicator after 3 seconds
@@ -178,20 +164,30 @@ export default function CodePane({ question }: { question: any }) {
                 return;
             }
 
-            // Handle document sync - only if not initialized
-            if (isDocInitialized) { return; }
-
-            // We don't need to reload the entire textarea if the change is caused by us.
-            if (msg?.by === userId) { return; }
-
+            // Handle document initialization
             if (msg.type === "init") {
-                setCode(msg.document.text);
-                setDocVersion(msg.document.version);
+                console.log("[CodePane] Received init message:", msg.document);
+                if (!isDocInitialized) {
+                    console.log("[CodePane] Initializing with document content:", msg.document.text);
+                    setCode(msg.document.text || "");
+                    setDocVersion(msg.document.version);
+                    setDocInitialized(true);
+                }
+                return;
             }
 
+            // Handle document sync updates (for real-time collaboration)
             if (msg.type === "doc:applied" || msg.type === "doc:resync") {
+                console.log("[CodePane] Document sync update:", msg.document);
+                // We don't need to reload if the change is caused by us
+                if (msg?.by === userId) { 
+                    console.log("[CodePane] Ignoring our own change");
+                    return; 
+                }
+                
                 setCode(msg.document.text);
                 setDocVersion(msg.document.version);
+                return;
             }
         })
 
@@ -199,31 +195,43 @@ export default function CodePane({ question }: { question: any }) {
         setExecuteTestCases(() => executeTestCases);
     }, [language]);
 
-    const getCaretPosition = (textarea: HTMLTextAreaElement) => {
-        if (textarea.selectionStart || textarea.selectionStart === 0) {
-            return textarea.selectionStart;
-        }
-        return 0;
-    }
 
-    const handleCodeChanged = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const codeTextarea = e.target;
+
+    const handleCodeChanged = (newCode: string) => {
+        console.log("[CodePane] Code changed from:", code.length, "chars to:", newCode.length, "chars");
+        
+        // Update local state first
+        setCode(newCode);
+        
+        // Don't send changes if we're not initialized yet
+        if (!isDocInitialized) {
+            console.log("[CodePane] Not initialized yet, skipping WebSocket sync");
+            return;
+        }
 
         // Compare the diff between the old text and the new text.
-        var oldCode = code;
-        var newCode = e.target.value;
-
+        const oldCode = code;
         const diffs = diffChars(oldCode, newCode);
+
+        // Check if there are actual changes
+        const hasChanges = diffs.some(diff => diff.added || diff.removed);
+        if (!hasChanges) {
+            console.log("[CodePane] No actual changes detected");
+            return;
+        }
+
+        console.log("[CodePane] Sending document operations for changes");
 
         // Keeps track of the current index of the diff objects we are iterating over.
         let currentIndex = 0;
-        diffs.forEach((el: any, index: number) => {
+        for (const el of diffs) {
             if (!el.removed && !el.added) {
                 currentIndex += el.count;
-                return;
+                continue;
             }
 
             if (el.added) {
+                console.log("[CodePane] Sending insert operation");
                 sendMsg({
                     "type": "doc:op",
                     "op": {
@@ -231,15 +239,15 @@ export default function CodePane({ question }: { question: any }) {
                         "index": currentIndex,
                         "text": el.value,
                         "version": docVersion
-                    }
+                    },
+                    "by": userId
                 });
                 currentIndex += el.count;
-
-                setDocVersion((docVersion) => docVersion + 1);
-                return;
+                setDocVersion((prevVersion) => prevVersion + 1);
             }
 
             if (el.removed) {
+                console.log("[CodePane] Sending delete operation");
                 sendMsg({
                     "type": "doc:op",
                     "op": {
@@ -247,15 +255,12 @@ export default function CodePane({ question }: { question: any }) {
                         "index": currentIndex,
                         "length": el.count,
                         "version": docVersion
-                    }
+                    },
+                    "by": userId
                 });
-
-                setDocVersion((docVersion) => docVersion + 1);
-                return;
+                setDocVersion((prevVersion) => prevVersion + 1);
             }
-        })
-
-        setCode(e.target.value);
+        }
     }
 
     async function handleRun() {
@@ -290,7 +295,7 @@ export default function CodePane({ question }: { question: any }) {
 
     // Extract test cases from question data
     const extractTestCases = (question: any) => {
-        if (!question || !question.test_cases) return [];
+        if (!question?.test_cases) return [];
         
         try {
             let testCases = [];
@@ -392,6 +397,8 @@ export default function CodePane({ question }: { question: any }) {
         }
     }
 
+
+
   return (
       <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -409,7 +416,7 @@ export default function CodePane({ question }: { question: any }) {
                        onChange={(e) => {
                            const newLanguage = e.target.value;
                            setLanguage(newLanguage);
-                           setCode(boilerplates[newLanguage]);
+                           // Don't clear code when user changes language - preserve existing content
                            
                            // Broadcast language change to other users
                            sendMsg({
@@ -455,9 +462,11 @@ export default function CodePane({ question }: { question: any }) {
                       ) : (
                           <TestTube className="w-4 h-4" />
                       )}
-                      {isExecutingTests ? "Testing..." : 
-                       extractTestCases(question).length === 0 ? "No Tests" : 
-                       "Run Tests"}
+{(() => {
+                          if (isExecutingTests) return "Testing...";
+                          if (extractTestCases(question).length === 0) return "No Tests";
+                          return "Run Tests";
+                      })()}
                   </motion.button>
               </div>
           </div>
@@ -465,8 +474,9 @@ export default function CodePane({ question }: { question: any }) {
           {/* Custom Input Section */}
           <div className="px-6 py-3 border-b border-slate-700/50 bg-slate-800/30">
               <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-slate-300">Custom Input:</label>
+                  <label htmlFor="custom-input" className="text-sm font-medium text-slate-300">Custom Input:</label>
                   <input
+                      id="custom-input"
                       type="text"
                       value={customInput}
                       onChange={(e) => setCustomInput(e.target.value)}
@@ -493,13 +503,13 @@ export default function CodePane({ question }: { question: any }) {
 
           {/* Code Editor */}
           <div className="flex-1 p-6 bg-slate-950">
-              <textarea
-                  value={code}
-                  onChange={handleCodeChanged}
-                  className="w-full h-full p-4 bg-slate-900 text-slate-200 font-mono text-sm rounded-lg border border-slate-700/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all resize-none"
-                  placeholder="// Write your code here..."
-                  spellCheck={false}
-              />
+              <div className="w-full h-full rounded-lg border border-slate-700/50 overflow-hidden">
+                  <MonacoEditor
+                      value={code}
+                      onChange={handleCodeChanged}
+                      language={getMonacoLanguage(language)}
+                  />
+              </div>
           </div>
       </motion.div>
   );
