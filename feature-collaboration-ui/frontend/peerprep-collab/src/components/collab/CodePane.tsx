@@ -472,15 +472,6 @@ export default function CodePane({ question }: { question: any }) {
                    )}
                </div>
               <div className="flex items-center gap-3">
-                  <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleRun}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium rounded-lg shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all flex items-center gap-2"
-                  >
-                      <Play className="w-4 h-4" />
-                      Run Code
-                  </motion.button>
                   
                   <motion.button
                       whileHover={{ scale: 1.05 }}
