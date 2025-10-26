@@ -15,18 +15,14 @@ export function connectCollabSocket(sessionId: string, userId: string, onMessage
         onMessage(JSON.parse(e.data));
     };
 
-    ws.onerror = (e) => {
-        console.error("[CollabSocket] WebSocket error:", e);
-        console.error("[CollabSocket] Error details:", {
-            readyState: ws.readyState,
-            url: fullUrl,
-            sessionId,
-            userId
-        });
-    };
-
-    ws.onclose = (e) => {
-        console.log("[CollabSocket] WebSocket closed:", e.code, e.reason);
+    ws.onclose = (evt) => {
+        const { code, reason } = evt;
+        const normal = code === 1000 || code === 1001; // normal close or page unload/HMR
+        if (!normal) {
+            console.warn("[CollabSocket] WebSocket closed unexpectedly:", code, reason);
+        } else {
+            console.log("[CollabSocket] WebSocket closed normally.");
+        }
     };
 
     const send = (data: any) => {
