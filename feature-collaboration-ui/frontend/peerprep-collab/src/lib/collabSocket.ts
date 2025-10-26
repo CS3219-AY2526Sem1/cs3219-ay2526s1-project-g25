@@ -1,9 +1,11 @@
 export function connectCollabSocket(sessionId: string, userId: string, onMessage: (msg: any) => void) {
-    const wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3004/ws';
+    let wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004/ws";
+
+    if (!wsUrl.endsWith("/ws")) wsUrl = wsUrl.replace(/\/?$/, "/ws");
+
     const fullUrl = `${wsUrl}?sessionId=${sessionId}&userId=${userId}`;
-    console.log('[CollabSocket] Connecting to WebSocket:', fullUrl);
-    console.log('[CollabSocket] SessionId:', sessionId, 'UserId:', userId);
-    
+        console.log("[CollabSocket] Connecting to:", fullUrl);
+
     const ws = new WebSocket(fullUrl);
 
     ws.onopen = (e) => {
