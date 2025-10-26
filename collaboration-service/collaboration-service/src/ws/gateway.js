@@ -81,6 +81,7 @@ export function initGateway(wss) {
     ws.on("message", async (buf) => {
       try {
         const msg = JSON.parse(buf.toString());
+        console.log(`[WS] Received message from user ${userId} (session ${sessionId}):`, JSON.stringify(msg).slice(0, 200));
 
         // ---- Document Operation ----
         if (msg.type === "doc:op") {
@@ -137,6 +138,7 @@ export function initGateway(wss) {
         // ---- Run Code ----
         if (msg.type === "run:execute") {
           try {
+            console.log(`[WS run:execute] Received execution request for session ${sessionId} (user ${userId}), language=${msg.language}`);
             // const doc = (await redisRepo.getJson(`document:${sessionId}`)) || { text: "", version: 0 };
             let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
             if (!doc) doc = await redisRepo.getJson(`document:${sessionId}`);
@@ -145,7 +147,10 @@ export function initGateway(wss) {
 
             // Call Judge0 directly
             const { judge0Run } = await import("../services/judge0Provider.js");
+            console.log("[run:execute] Code snippet:");
+            console.log(doc.text.slice(0, 200));
             const result = await judge0Run({ code: doc.text, language });
+            console.log("[run:execute] Judge0 result:", result);
 
             // Store run logs (optional)
             await redisRepo.pushToList(`collab:runLogs:${sessionId}`, {
@@ -157,6 +162,7 @@ export function initGateway(wss) {
             });
 
             // Broadcast result to all clients in the session
+            console.log(`[run:execute] Broadcasting run:result to all clients in session ${sessionId}`);
             const payload = {
               type: "run:result",
               run: {
@@ -182,79 +188,100 @@ export function initGateway(wss) {
         if (msg.type === "run:testCases") {
           try {
             console.log(`[WS run:testCases] Starting test execution for session ${sessionId}, user ${userId}`);
-            
-            const { testExecutionService } = await import("../services/testExecutionService.js");
-            
-            // Get document content
+
+            // (A) Immediately ACK the caller so the UI knows the backend received it
+            ws.send(JSON.stringify({ type: "run:testStarted", ts: Date.now() }));
+
+            // Load service (and fail safely)
+            let testExecutionService;
+            try {
+              ({ testExecutionService } = await import("../services/testExecutionService.js"));
+            } catch (e) {
+              console.error("[WS run:testCases] Could not load testExecutionService:", e);
+              // Fallback: run each case with judge0 directly
+              const { judge0Run } = await import("../services/judge0Provider.js");
+              testExecutionService = {
+                async executeTestCases(code, language, cases, opts) {
+                  const results = [];
+                  for (const tc of cases) {
+                    const input = tc.input ?? "";
+                    const expected = (tc.output ?? tc.expected ?? "").trim();
+                    const r = await judge0Run({ code, language, stdin: input, timeoutMs: opts?.timeoutMs, memoryLimit: opts?.memoryLimit });
+                    const actual = (r.stdout ?? "").trim();
+                    results.push({
+                      input,
+                      output: actual,
+                      expected,
+                      status: actual === expected ? "pass" : "fail",
+                    });
+                  }
+                  return {
+                    totalTests: results.length,
+                    passedTests: results.filter(x => x.status === "pass").length,
+                    failedTests: results.filter(x => x.status !== "pass").length,
+                    testResults: results,
+                    executionTime: 0,
+                    language,
+                    timestamp: Date.now(),
+                  };
+                }
+              };
+            }
+
+            // (B) Get code
             let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
             if (!doc) doc = await redisRepo.getJson(`document:${sessionId}`);
             if (!doc) doc = { text: "", version: 0 };
-            
+
             const language = msg.language || "javascript";
             const testCases = msg.testCases || [];
-            
-            console.log(`[WS run:testCases] Code: ${doc.text.substring(0, 100)}...`);
-            console.log(`[WS run:testCases] Language: ${language}`);
-            console.log(`[WS run:testCases] Test cases:`, testCases);
-            
             if (testCases.length === 0) {
-              console.warn("[WS run:testCases] No test cases provided");
-              ws.send(JSON.stringify({
+              const emptyPayload = {
                 type: "run:testResults",
                 testResults: {
                   userId,
                   language,
                   results: {
-                    totalTests: 0,
-                    passedTests: 0,
-                    failedTests: 0,
-                    testResults: [],
-                    executionTime: 0,
-                    language,
-                    timestamp: Date.now()
+                    totalTests: 0, passedTests: 0, failedTests: 0,
+                    testResults: [], executionTime: 0, language, timestamp: Date.now()
                   },
                   ts: Date.now(),
                 },
-              }));
+              };
+              // send to caller and broadcast
+              try { ws.send(JSON.stringify(emptyPayload)); } catch {}
+              broadcast(sessionId, emptyPayload, null);
               return;
             }
-            
-            // Execute test cases
-            console.log(`[WS run:testCases] Executing ${testCases.length} test cases...`);
+
+            // (C) Execute
             const results = await testExecutionService.executeTestCases(
               doc.text,
               language,
               testCases,
-              {
-                timeoutMs: 5000,
-                memoryLimit: 128000
-              }
+              { timeoutMs: 5000, memoryLimit: 128000 }
             );
 
-            console.log(`[WS run:testCases] Execution completed:`, results);
-
-            // Store test execution logs
             await redisRepo.pushToList(`collab:testLogs:${sessionId}`, {
-              userId,
-              code: doc.text,
-              language,
-              results,
-              ts: Date.now(),
+              userId, code: doc.text, language, results, ts: Date.now(),
             });
 
-            // Broadcast test results to all clients in the session
+            // (D) Return results to everyone AND to caller explicitly
+            console.log("[run:testCases] Finished executing tests.");
+            console.log("[run:testCases] Summary:", {
+              passed: results.passedTests,
+              failed: results.failedTests,
+              total: results.totalTests,
+            });
             const payload = {
               type: "run:testResults",
-              testResults: {
-                userId,
-                language,
-                results,
-                ts: Date.now(),
-              },
+              testResults: { userId, language, results, ts: Date.now() },
             };
-            console.log(`[WS run:testCases] Broadcasting results to session ${sessionId}:`, payload);
+            try { ws.send(JSON.stringify(payload)); } catch {}
+            console.log(`[run:testCases] Broadcasting run:testResults for session ${sessionId}`);
             broadcast(sessionId, payload, null);
-            
+            return;
+
           } catch (err) {
             console.error("[WS run:testCases] Error:", err);
             const errorPayload = {
@@ -263,11 +290,8 @@ export function initGateway(wss) {
                 userId,
                 language: msg.language || "javascript",
                 results: {
-                  totalTests: 0,
-                  passedTests: 0,
-                  failedTests: 0,
-                  testResults: [],
-                  executionTime: 0,
+                  totalTests: 0, passedTests: 0, failedTests: 0,
+                  testResults: [], executionTime: 0,
                   language: msg.language || "javascript",
                   timestamp: Date.now(),
                   error: err.message
@@ -275,16 +299,17 @@ export function initGateway(wss) {
                 ts: Date.now(),
               },
             };
+            try { ws.send(JSON.stringify(errorPayload)); } catch {}
             broadcast(sessionId, errorPayload, null);
+            return;
           }
-          return;
         }
 
         // ---- Run Code with Custom Input ----
         if (msg.type === "run:code") {
           try {
-            console.log(`[WS run:code] Starting custom input execution for session ${sessionId}, user ${userId}`);
-            
+            console.log(`[run:code] User ${userId} executed code in session ${sessionId}`);
+
             const { judge0Provider } = await import("../services/judge0Provider.js");
             
             // Get document content
@@ -306,6 +331,7 @@ export function initGateway(wss) {
               timeoutMs: 5000,
               memoryLimit: 128000
             });
+            console.log("[run:code] Execution result:", result);
 
             console.log(`[WS run:code] Execution result:`, result);
 
