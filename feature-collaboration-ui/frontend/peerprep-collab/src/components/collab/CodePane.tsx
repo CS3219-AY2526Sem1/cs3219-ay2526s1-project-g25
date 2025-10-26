@@ -3,7 +3,7 @@
 
 import { motion } from "framer-motion";
 import { Play, Code2, TestTube, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { executeCode } from "@/lib/collabApi";
 import { useCollabStore } from "@/lib/collabStore";
 import { getParams } from "@/lib/helpers";
@@ -11,13 +11,14 @@ import {connectCollabSocket} from "@/lib/collabSocket";
 import { diffChars } from "diff";
 import MonacoEditor from "./MonacoEditor";
 
+import * as Y from "yjs";
 
 
 export default function CodePane({ question }: { question: any }) {
     const [language, setLanguage] = useState("python");
-    const [isDocInitialized, setDocInitialized] = useState(false);
+    // const [isDocInitialized, setDocInitialized] = useState(false);
     const [code, setCode] = useState("");
-    const [docVersion, setDocVersion] = useState(0);
+    // const [docVersion, setDocVersion] = useState(0);
     const [sendMsg, setSendMsg] = useState<(data: any) => void>(() => () => {})
     const [executeTestCases, setExecuteTestCases] = useState<(language: string, testCases: any[]) => void>(() => () => {})
     const [customInput, setCustomInput] = useState("")
@@ -34,6 +35,9 @@ export default function CodePane({ question }: { question: any }) {
 
     const { userId, sessionId } = getParams();
 
+    const yDocRef = useRef<Y.Doc | null>(null);
+    const yTextRef = useRef<Y.Text | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
 
 
     // Map your language values to Monaco Editor language IDs
@@ -165,113 +169,120 @@ export default function CodePane({ question }: { question: any }) {
                 return;
             }
 
-            // Handle document initialization
-            if (msg.type === "init") {
-                console.log("[CodePane] Received init message:", msg.document);
-                if (!isDocInitialized) {
-                    console.log("[CodePane] Initializing with document content:", msg.document.text);
-                    setCode(msg.document.text || "");
-                    setDocVersion(msg.document.version);
-                    setDocInitialized(true);
-                }
-                return;
-            }
+        //     // Handle document initialization
+        //     if (msg.type === "init") {
+        //         console.log("[CodePane] Received init message:", msg.document);
+        //         if (!isDocInitialized) {
+        //             console.log("[CodePane] Initializing with document content:", msg.document.text);
+        //             setCode(msg.document.text || "");
+        //             setDocVersion(msg.document.version);
+        //             setDocInitialized(true);
+        //         }
+        //         return;
+        //     }
 
-            // Handle document sync updates (for real-time collaboration)
-            if (msg.type === "doc:applied" || msg.type === "doc:resync") {
-                console.log("[CodePane] Document sync update:", msg.document);
-                // We don't need to reload if the change is caused by us
-                if (msg?.by === userId) { 
-                    console.log("[CodePane] Ignoring our own change");
-                    return; 
-                }
+        //     // Handle document sync updates (for real-time collaboration)
+        //     if (msg.type === "doc:applied" || msg.type === "doc:resync") {
+        //         console.log("[CodePane] Document sync update:", msg.document);
+        //         // We don't need to reload if the change is caused by us
+        //         if (msg?.by === userId) { 
+        //             console.log("[CodePane] Ignoring our own change");
+        //             return; 
+        //         }
                 
-                setCode(msg.document.text);
-                setDocVersion(msg.document.version);
-                return;
+        //         setCode(msg.document.text);
+        //         setDocVersion(msg.document.version);
+        //         return;
+        //     }
             }
-        })
+        );
 
         setSendMsg(() => send);
         setExecuteTestCases(() => executeTestCases);
-    }, [language]);
+    }, [language, sessionId, userId, setCurrentLanguage, setIsExecutingTests, setTestExecutionResults, setOutput]);
 
+    useEffect(() => {
+        if (!sessionId || !userId) return;
+        if (typeof window === "undefined") return; // SSR guard
+
+        const ydoc = new Y.Doc();
+        const ytext = ydoc.getText("code");
+        yDocRef.current = ydoc;
+        yTextRef.current = ytext;
+
+        const base = process.env.NEXT_PUBLIC_YJS_WS_URL ?? "ws://localhost:3004/ws-yjs";
+        const wsUrl = `${base}?${new URLSearchParams({ sessionId, userId })}`;
+        const ws = new window.WebSocket(wsUrl);
+        ws.binaryType = "arraybuffer";
+        wsRef.current = ws;
+
+        ws.onopen = () => console.log("[Yjs] Connected", wsUrl);
+
+        ws.onmessage = (evt) => {
+            const update = new Uint8Array(evt.data as ArrayBuffer);
+            Y.applyUpdate(ydoc, update);
+        };
+
+        // Type signature matches Y.Doc 'update' event
+        const onUpdate = (update: Uint8Array, _origin: unknown, _doc: Y.Doc) => {
+            const sock = wsRef.current;
+            if (sock && sock.readyState === WebSocket.OPEN) {
+            sock.send(update);
+            }
+        };
+        ydoc.on("update", onUpdate);
+
+        const onY = () => setCode(ytext.toString());
+        ytext.observe(onY);
+
+        return () => {
+            try { ytext.unobserve(onY); } catch {}
+            try { ydoc.off("update", onUpdate); } catch {}
+            try { wsRef.current?.close(); } catch {}
+            wsRef.current = null;
+            yDocRef.current = null;
+            yTextRef.current = null;
+        };
+    }, [sessionId, userId]);
 
 
     const handleCodeChanged = (newCode: string) => {
-        console.log("[CodePane] Code changed from:", code.length, "chars to:", newCode.length, "chars");
-        
-        // Update local state first
-        setCode(newCode);
-        
-        // Don't send changes if we're not initialized yet
-        if (!isDocInitialized) {
-            console.log("[CodePane] Not initialized yet, skipping WebSocket sync");
-            return;
-        }
+        setCode(newCode); // update Monaco immediately for responsiveness
 
-        // Compare the diff between the old text and the new text.
-        const oldCode = code;
-        const diffs = diffChars(oldCode, newCode);
+        const ydoc = yDocRef.current;
+        const ytext = yTextRef.current;
+        if (!ydoc || !ytext) return;
 
-        // Check if there are actual changes
-        const hasChanges = diffs.some(diff => diff.added || diff.removed);
-        if (!hasChanges) {
-            console.log("[CodePane] No actual changes detected");
-            return;
-        }
+        const oldV = ytext.toString();
+        if (oldV === newCode) return;
 
-        console.log("[CodePane] Sending document operations for changes");
-
-        // Keeps track of the current index of the diff objects we are iterating over.
-        let currentIndex = 0;
-        for (const el of diffs) {
-            if (!el.removed && !el.added) {
-                currentIndex += el.count;
-                continue;
-            }
-
-            if (el.added) {
-                console.log("[CodePane] Sending insert operation");
-                sendMsg({
-                    "type": "doc:op",
-                    "op": {
-                        "type": "insert",
-                        "index": currentIndex,
-                        "text": el.value,
-                        "version": docVersion
-                    },
-                    "by": userId
-                });
-                currentIndex += el.count;
-                setDocVersion((prevVersion) => prevVersion + 1);
-            }
-
-            if (el.removed) {
-                console.log("[CodePane] Sending delete operation");
-                sendMsg({
-                    "type": "doc:op",
-                    "op": {
-                        "type": "delete",
-                        "index": currentIndex,
-                        "length": el.count,
-                        "version": docVersion
-                    },
-                    "by": userId
-                });
-                setDocVersion((prevVersion) => prevVersion + 1);
-            }
-        }
-    }
+        // naive replace-all (works; optimize later if needed)
+        ydoc.transact(() => {
+        ytext.delete(0, oldV.length);
+        ytext.insert(0, newCode);
+        });
+        // Yjs will emit an update; our adapter sends it to the server,
+        // and peers receive/apply it. No manual doc:op needed.
+    };
 
     async function handleRun() {
         try {
+            console.log("[CodePane] handleRun() called:", { sessionId, language });
             setOutput("Running...");
             setTests([]);
-            const res = await executeCode(sessionId, code, language);
+            //const res = await executeCode(sessionId, code, language);
+            const payload = await executeCode(sessionId, code, language);
+            //console.log("[CodePane] Received response:", res);
+            const run = (payload && payload.run) ? payload.run : payload;
+            //const out =
+                //res?.run?.output || res.output || res.stderr || "[NO OUTPUT]";
             const out =
-                res?.run?.output || res.output || res.stderr || "[NO OUTPUT]";
+                (run.output != null && String(run.output).trim() !== "" ? run.output : null) ??
+                (run.error  != null && String(run.error ).trim() !== "" ? run.error  : null) ??
+                "[NO OUTPUT]";
             setOutput(out);
+
+            console.log("[CodePane] REST execute payload:", payload);
 
             // Optional: Parse JSON test result array if backend returns one
             try {
@@ -289,10 +300,29 @@ export default function CodePane({ question }: { question: any }) {
                 setTests([]);
             }
         } catch (e: any) {
+            console.error("[CodePane] handleRun failed:", e);
             setOutput("Execution failed: " + e.message);
             setTests([]);
         }
     }
+
+    // async function handleRun() {
+    //     try {
+    //         console.log("[CodePane] Sending run:execute message via WebSocket");
+    //         setOutput("Running...");
+    //         setTests([]);
+
+    //         sendMsg({
+    //         type: "run:execute",
+    //         userId,
+    //         sessionId,
+    //         language,
+    //         });
+    //     } catch (e) {
+    //         console.error("[CodePane] handleRun failed:", e);
+    //         setOutput("Execution failed: " + String(e));
+    //     }
+    // }
 
     // Extract test cases from question data
     const extractTestCases = (question: any) => {
@@ -388,7 +418,7 @@ export default function CodePane({ question }: { question: any }) {
             });
 
             // Use executeCode API and pass stdin
-            const res = await executeCode(sessionId, code, language, customInput);
+            const res = await executeCode(sessionId, code, language);
 
             const out = res?.run?.output || res.output || res.stderr || "[NO OUTPUT]";
 
@@ -442,7 +472,7 @@ export default function CodePane({ question }: { question: any }) {
                    )}
                </div>
               <div className="flex items-center gap-3">
-                  {/* <motion.button
+                  <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleRun}
@@ -450,7 +480,7 @@ export default function CodePane({ question }: { question: any }) {
                   >
                       <Play className="w-4 h-4" />
                       Run Code
-                  </motion.button> */}
+                  </motion.button>
                   
                   <motion.button
                       whileHover={{ scale: 1.05 }}
