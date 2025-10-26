@@ -51,26 +51,31 @@ export default function QuestionPane({ question, sendMsg, sessionId, userId }) {
     };
   });
 
-  const handleEndSession = async () => {
-    if (!confirm("Are you sure you want to end this session for both users?")) return;
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}/leave`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId }),
-        }
-      );
-      await res.json();
-      alert("Session ended. Redirecting to dashboard...");
-      router.push(process.env.NEXT_PUBLIC_DASHBOARD_URL!);
-    } catch (err) {
-      console.error("[UI] Failed to end session:", err);
-    }
-  };
+const handleEndSession = async () => {
+  if (!confirm("Are you sure you want to end this session for both users?")) return;
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}/leave`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      }
+    );
+    await res.json();
+    alert("Session ended. Redirecting to dashboard...");
 
-  // Detect and render arrays/matrices cleanly
+    //Explicit absolute redirect
+    const dashboardUrl =
+      process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
+    window.location.href = dashboardUrl;
+  } catch (err) {
+    console.error("[UI] Failed to end session:", err);
+  }
+};
+
+
+  // 🧠 Detect and render arrays/matrices cleanly
   const isMatrix = (val: any) =>
     Array.isArray(val) && Array.isArray(val[0]) && Array.isArray(val[0][0]) === false;
 
