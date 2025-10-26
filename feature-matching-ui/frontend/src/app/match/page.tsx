@@ -61,14 +61,38 @@ export default function MatchPage() {
       <MatchCanvas />
       <CodeBackground />
 
-      {/* Header */}
+            {/* Header */}
       <motion.div
         className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-20"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {/* 🟣 Return to Dashboard Button */}
+          <button
+            onClick={() =>
+              window.location.href =
+                process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard"
+            }
+            className="group flex items-center gap-2 px-4 py-2 rounded-xl border border-purple-500/30 bg-purple-900/30 
+                       hover:bg-purple-800/50 hover:border-purple-400/50 text-purple-300 font-medium text-sm 
+                       transition-all duration-300 shadow-sm hover:shadow-purple-500/30"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="tracking-wide">Return to Dashboard</span>
+          </button>
+
+          {/* App Logo */}
           <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-400 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/50">
             <Zap className="w-6 h-6 text-white" />
           </div>
