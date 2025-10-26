@@ -228,12 +228,45 @@ export function initGateway(wss) {
               };
             }
 
-            // (B) Get code
+            // // (B) Get code
+            // let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
+            // if (!doc) doc = await redisRepo.getJson(`document:${sessionId}`);
+            // if (!doc) doc = { text: "", version: 0 };
+
+            // const language = msg.language || "javascript";
+
+            // (B) Resolve code: prefer client payload, fallback to Redis
+            const language = msg.language || "javascript";
+            let code = typeof msg.code === "string" ? msg.code : "";
+            if (!code.trim()) {
             let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
             if (!doc) doc = await redisRepo.getJson(`document:${sessionId}`);
-            if (!doc) doc = { text: "", version: 0 };
+            code = (doc?.text || "");
+            }
+            console.log(`[WS run:testCases] language=${language} codeLen=${code.length}`);
+        
+            // Guard: if code empty, do not run
+            if (!code.trim()) {
+              const emptySrc = {
+                type: "run:testResults",
+                testResults: {
+                  userId,
+                  language,
+                  results: {
+                    totalTests: 0, passedTests: 0, failedTests: 0,
+                    testResults: [],
+                    executionTime: 0,
+                    language, timestamp: Date.now(),
+                  },
+                  ts: Date.now(),
+                  error: "No code to execute."
+                },
+              };
+              try { ws.send(JSON.stringify(emptySrc)); } catch {}
+              broadcast(sessionId, emptySrc, null);
+              return;
+            }
 
-            const language = msg.language || "javascript";
             const testCases = msg.testCases || [];
             if (testCases.length === 0) {
               const emptyPayload = {
@@ -255,15 +288,19 @@ export function initGateway(wss) {
             }
 
             // (C) Execute
+            // const results = await testExecutionService.executeTestCases(
+            //   doc.text,
             const results = await testExecutionService.executeTestCases(
-              doc.text,
+              code,
               language,
               testCases,
               { timeoutMs: 5000, memoryLimit: 128000 }
             );
 
+            // await redisRepo.pushToList(`collab:testLogs:${sessionId}`, {
+            //   userId, code: doc.text, language, results, ts: Date.now(),
             await redisRepo.pushToList(`collab:testLogs:${sessionId}`, {
-              userId, code: doc.text, language, results, ts: Date.now(),
+              userId, code, language, results, ts: Date.now(),
             });
 
             // (D) Return results to everyone AND to caller explicitly

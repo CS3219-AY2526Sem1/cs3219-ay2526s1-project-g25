@@ -382,9 +382,40 @@ export default function CodePane({ question }: { question: any }) {
             // Store timeout ID to clear it when results come back
             (window as any).testTimeoutId = timeoutId;
             
-            // Execute test cases via WebSocket using stored function
+            // // Execute test cases via WebSocket using stored function
+            // try {
+            //     executeTestCases(language, testCases);
+            // } catch (e) {
+            //     console.error("[CodePane] Failed to send test execution request:", e);
+            //     setIsExecutingTests(false);
+            //     if ((window as any).testTimeoutId) {
+            //         clearTimeout((window as any).testTimeoutId);
+            //         (window as any).testTimeoutId = null;
+            //     }
+            // }
+
+            // Guard: do not run if code is empty
+            const trimmed = (code ?? "").trim();
+            if (!trimmed) {
+                console.warn("[CodePane] No code to execute.");
+                setIsExecutingTests(false);
+                setTestExecutionResults(null);
+                setOutput("No code to execute.");
+                if ((window as any).testTimeoutId) {
+                    clearTimeout((window as any).testTimeoutId);
+                    (window as any).testTimeoutId = null;
+                }
+                return;
+            }
+
+            // Send tests over WS and include the current code
             try {
-                executeTestCases(language, testCases);
+                sendMsg({
+                    type: "run:testCases",
+                    language,
+                    testCases,
+                    code: trimmed,
+                });
             } catch (e) {
                 console.error("[CodePane] Failed to send test execution request:", e);
                 setIsExecutingTests(false);
