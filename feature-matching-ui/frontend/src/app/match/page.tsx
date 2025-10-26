@@ -1,59 +1,55 @@
-"use client"
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Target, Zap, Sparkles } from "lucide-react"
-import CodeBackground from "@/components/match/CodeBackground"
-import TopicSelector from "@/components/match/TopicSelector"
-import MatchStatusCard from "@/components/match/MatchStatusCard"
-import MatchCanvas from "@/components/match/MatchCanvas"
-import { useMatchFlow } from "@/hooks/useMatchFlow"
-import { getAccessToken, parseJwt } from "@/lib/auth"
+"use client";
+
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Target, Sparkles } from "lucide-react";
+import CodeBackground from "@/components/match/CodeBackground";
+import TopicSelector from "@/components/match/TopicSelector";
+import MatchStatusCard from "@/components/match/MatchStatusCard";
+import MatchCanvas from "@/components/match/MatchCanvas";
+import { useMatchFlow } from "@/hooks/useMatchFlow";
+import { getAccessToken, parseJwt } from "@/lib/auth";
+import PeerPrepLogo from "@/components/match/PeerPrepLogo";
 
 export default function MatchPage() {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [isClient, setIsClient] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // Mark as client-side rendered
-    setIsClient(true)
-    
-    // Only run on client side to avoid hydration mismatch
-    const token = getAccessToken()
-    console.log('[MatchPage] Token found:', token ? token.substring(0, 20) + '...' : 'None');
-    
+    setIsClient(true);
+    const token = getAccessToken();
+    console.log("[MatchPage] Token found:", token ? token.substring(0, 20) + "..." : "None");
+
     if (token) {
-      const payload = parseJwt<{ userId: number }>(token)
-      console.log('[MatchPage] Token payload:', payload);
-      setUserId(payload?.userId ? String(payload.userId) : null)
+      const payload = parseJwt<{ userId: number }>(token);
+      console.log("[MatchPage] Token payload:", payload);
+      setUserId(payload?.userId ? String(payload.userId) : null);
     } else {
-      console.log('[MatchPage] No token found, using demo user for testing');
-      // For demo purposes, use a demo user ID
-      // TODO: Re-enable proper authentication after demo
+      console.log("[MatchPage] No token found, using demo user");
       setUserId("123");
     }
-  }, [])
+  }, []);
 
-  const { phase, matchData, join, leave, timeLeft } = useMatchFlow(userId)
-  const [topics, setTopics] = useState<string[]>([])
-  const [difficulty, setDifficulty] = useState("EASY")
+  const { phase, matchData, join, leave, timeLeft } = useMatchFlow(userId);
+  const [topics, setTopics] = useState<string[]>([]);
+  const [difficulty, setDifficulty] = useState("EASY");
 
   const handleFindMatch = () => {
     if (topics.length === 0) {
-      alert("Please select at least one topic")
-      return
+      alert("Please select at least one topic");
+      return;
     }
-    join(topics, difficulty)
-  }
+    join(topics, difficulty);
+  };
 
-  const isMatchingActive = phase === "searching" || phase === "matched"
+  const isMatchingActive = phase === "searching" || phase === "matched";
 
-  // Show loading state during hydration
   if (!isClient) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 flex items-center justify-center">
+      <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950">
         <div className="text-purple-300 text-lg">Loading...</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -61,7 +57,7 @@ export default function MatchPage() {
       <MatchCanvas />
       <CodeBackground />
 
-            {/* Header */}
+      {/* Header */}
       <motion.div
         className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-20"
         initial={{ opacity: 0, y: -20 }}
@@ -69,11 +65,11 @@ export default function MatchPage() {
         transition={{ duration: 0.6 }}
       >
         <div className="flex items-center gap-4">
-          {/* 🟣 Return to Dashboard Button */}
+          {/* Return to Dashboard Button */}
           <button
             onClick={() =>
-              window.location.href =
-                process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard"
+              (window.location.href =
+                process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard")
             }
             className="group flex items-center gap-2 px-4 py-2 rounded-xl border border-purple-500/30 bg-purple-900/30 
                        hover:bg-purple-800/50 hover:border-purple-400/50 text-purple-300 font-medium text-sm 
@@ -92,13 +88,8 @@ export default function MatchPage() {
             <span className="tracking-wide">Return to Dashboard</span>
           </button>
 
-          {/* App Logo */}
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-400 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/50">
-            <Zap className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-300 bg-clip-text text-transparent">
-            PeerPrep
-          </h1>
+          {/* Unified App Logo */}
+          <PeerPrepLogo size="xl" />
         </div>
 
         {isClient && userId && (
@@ -108,6 +99,7 @@ export default function MatchPage() {
         )}
       </motion.div>
 
+      {/*FIXED: close the header div properly before continuing */}
       <AnimatePresence mode="wait">
         {!isMatchingActive ? (
           <motion.div
@@ -224,5 +216,5 @@ export default function MatchPage() {
         Powered by intelligent peer matching algorithms
       </motion.div>
     </div>
-  )
+  );
 }
