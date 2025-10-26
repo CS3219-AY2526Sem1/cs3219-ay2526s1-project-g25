@@ -1,0 +1,16 @@
+name: Sample Workflow
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the 'main' branch
+      - github-actions
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Specifies the operating system for the job
+
+    steps:
+      - name: Say hello
+        run: echo "Hello World!" # Executes a shell command to print "Hello World!"
