@@ -1,13 +1,13 @@
 "use client";
 
 import TagPill from "./TagPill";
-import TestCase from "./TestCase";
 import { motion } from "framer-motion";
-import { BookOpen, LogOut} from "lucide-react";
+import { BookOpen, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import React from "react";
 
-export default function QuestionPane({ question, sendMsg, sessionId, userId}) {
-const router = useRouter();
+export default function QuestionPane({ question, sendMsg, sessionId, userId }) {
+  const router = useRouter();
   if (!question) return null;
 
   const {
@@ -18,58 +18,97 @@ const router = useRouter();
     image_url,
   } = question;
 
-  // ✅ Ensure test_cases is always an array
+  //Parse test cases robustly
   let testCases: any[] = [];
   try {
     if (Array.isArray(question.test_cases)) {
       testCases = question.test_cases;
     } else if (typeof question.test_cases === "string") {
       const parsed = JSON.parse(question.test_cases);
-      if (Array.isArray(parsed)) {
-        testCases = parsed;
-      } else if (parsed && Array.isArray(parsed.cases)) {
-        // Handle nested structure: {"cases": [{"input": [], "expected": ""}]}
-        testCases = parsed.cases.map((testCase: any) => ({
-          input: Array.isArray(testCase.input) ? testCase.input.join('\n') : testCase.input,
-          output: testCase.expected || testCase.output || ''
-        }));
-      }
+      if (Array.isArray(parsed)) testCases = parsed;
+      else if (parsed && Array.isArray(parsed.cases)) testCases = parsed.cases;
     } else if (question.test_cases && Array.isArray(question.test_cases.cases)) {
-      // Handle nested structure from database
-      testCases = question.test_cases.cases.map((testCase: any) => ({
-        input: Array.isArray(testCase.input) ? testCase.input.join('\n') : testCase.input,
-        output: testCase.expected || testCase.output || ''
-      }));
+      testCases = question.test_cases.cases;
     }
   } catch (err) {
     console.warn("[QuestionPane] Failed to parse test_cases:", err);
   }
 
-const handleEndSession = async () => {
-  if (!confirm("Are you sure you want to end this session for both users?")) return;
-
-  try {
-    console.log("[UI] Ending session...");
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}/leave`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+  //Normalize structure
+  testCases = testCases.map((tc) => {
+    const fixNested = (val: any) => {
+      if (Array.isArray(val) && val.length === 1 && Array.isArray(val[0])) {
+        return fixNested(val[0]);
       }
+      return val;
+    };
+
+    const output = tc.output ?? tc.expected;
+    return {
+      ...tc,
+      input: fixNested(tc.input),
+      output: fixNested(output),
+    };
+  });
+
+  const handleEndSession = async () => {
+    if (!confirm("Are you sure you want to end this session for both users?")) return;
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}/leave`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        }
+      );
+      await res.json();
+      alert("Session ended. Redirecting to dashboard...");
+      router.push(process.env.NEXT_PUBLIC_DASHBOARD_URL!);
+    } catch (err) {
+      console.error("[UI] Failed to end session:", err);
+    }
+  };
+
+  // Detect and render arrays/matrices cleanly
+  const isMatrix = (val: any) =>
+    Array.isArray(val) && Array.isArray(val[0]) && Array.isArray(val[0][0]) === false;
+
+  const renderValue = (val: any) => {
+    if (Array.isArray(val)) {
+      if (isMatrix(val)) {
+        // Matrix formatting (beautiful grid style)
+        return (
+          <div className="inline-block bg-slate-800/40 border border-slate-700/40 rounded-lg p-3">
+            <pre className="text-slate-200 font-mono text-sm">
+              {"["}
+              {val.map((row, i) => (
+                <div key={i} className="ml-4 flex">
+                  <span>[ </span>
+                  <span>{row.join(", ")}</span>
+                  <span> ]{i < val.length - 1 ? "," : ""}</span>
+                </div>
+              ))}
+              {"]"}
+            </pre>
+          </div>
+        );
+      } else {
+        // Array formatting (inline, not matrix)
+        return (
+          <code className="bg-slate-800/50 px-2 py-1 rounded-md text-purple-300 text-sm">
+            [{val.join(", ")}]
+          </code>
+        );
+      }
+    }
+    // Scalars or strings
+    return (
+      <code className="bg-slate-800/40 px-2 py-1 rounded-md text-emerald-300 text-sm">
+        {String(val)}
+      </code>
     );
-
-    const data = await res.json();
-    console.log("[UI] Leave response:", data);
-
-    alert("Session ended. Redirecting to dashboard...");
-    router.push(process.env.NEXT_PUBLIC_DASHBOARD_URL!);
-  } catch (err) {
-    console.error("[UI] Failed to end session:", err);
-  }
-};
-
+  };
 
   return (
     <motion.div
@@ -77,8 +116,7 @@ const handleEndSession = async () => {
       animate={{ opacity: 1, x: 0 }}
       className="h-full w-full bg-slate-900 border border-slate-700/50 rounded-2xl p-6 shadow-xl overflow-y-auto"
     >
-
-      {/* Header with End Session */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-purple-400" />
@@ -95,8 +133,8 @@ const handleEndSession = async () => {
 
       {/* Tags */}
       <div className="flex flex-wrap gap-2 mb-6">
-        <TagPill label={difficulty} isDifficulty={true} />
-        <TagPill label={topic} isDifficulty={false} />
+        <TagPill label={difficulty} isDifficulty />
+        <TagPill label={topic} />
       </div>
 
       {/* Description */}
@@ -121,19 +159,30 @@ const handleEndSession = async () => {
         <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
           Test Cases
         </h3>
+
         {testCases.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-5">
             {testCases.map((el, idx) => (
-              <TestCase
-                key={el.input || idx}
-                input={el.input}
-                output={el.output}
-                index={idx + 1}
-              />
+              <div
+                key={idx}
+                className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-4 shadow-sm transition hover:border-slate-600/50"
+              >
+                <p className="text-slate-400 text-xs font-semibold mb-1 uppercase">
+                  Input #{idx + 1}
+                </p>
+                <div className="mb-3">{renderValue(el.input)}</div>
+
+                <p className="text-slate-400 text-xs font-semibold mb-1 uppercase">
+                  Output
+                </p>
+                <div>{renderValue(el.output)}</div>
+              </div>
             ))}
           </div>
         ) : (
-          <p className="text-slate-500 text-sm italic">No test cases available.</p>
+          <p className="text-slate-500 text-sm italic">
+            No test cases available.
+          </p>
         )}
       </div>
     </motion.div>
