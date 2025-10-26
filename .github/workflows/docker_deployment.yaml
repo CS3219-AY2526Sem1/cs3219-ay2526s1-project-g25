@@ -1,0 +1,24 @@
+name: Docker Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - github-actions
+  pull_request:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout Code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # TEST: GitHub Actions variables
+      - name: Echoes DockerHub Username
+        run: echo "${{ secrets.DOCKERHUB_USERNAME }}"
+
+      - name: Echoes DockerHub Token
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}"
