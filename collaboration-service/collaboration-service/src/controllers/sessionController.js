@@ -54,6 +54,7 @@ export const createSession = async (req, res) => {
       console.warn("[createSession] Difficulty update failed:", err.message);
     }
 
+    console.log("[createSession] success:", s);
     res.status(201).json(s);
   } catch (e) {
     console.error("[createSession] Error:", e);
@@ -180,9 +181,9 @@ export const execute = async (req, res) => {
 
     if (busy) return res.status(429).json({ error: "Execution in progress" });
     await redisRepo.pushToList(logKey, run);
-    broadcast(s.id, { type: "run:result", run });
-
-    return res.status(201).json(run);
+    const payload = { type: "run:result", run };
+    broadcast(s.id, payload, null);
+    return res.status(201).json(payload);
   } catch (e) {
     console.error("[execute] Error:", e);
     return res.status(500).json({ error: e.message });

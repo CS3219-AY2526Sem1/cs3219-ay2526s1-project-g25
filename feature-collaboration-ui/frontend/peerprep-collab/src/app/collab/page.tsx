@@ -36,8 +36,13 @@ export default function CollabPage() {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === "session:end") {
-        alert("Your partner ended the session.");
-        router.push("/dashboard");
+        document.body.style.transition = "opacity 0.4s ease";
+        document.body.style.opacity = "0";
+        setTimeout(() => {
+          const dashboardUrl =
+            process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
+          window.location.href = dashboardUrl;
+        }, 400);
       }
     };
 
@@ -86,7 +91,7 @@ export default function CollabPage() {
     if (!sessionId) return;
     (async () => {
       try {
-        // 1️⃣ Fetch session info from Collaboration backend
+        // Fetch session info from Collaboration backend
         const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || 'http://localhost:3004';
         console.log('[CollabPage] Fetching session with baseUrl:', baseUrl);
         const res = await fetch(`${baseUrl}/sessions/${sessionId}`);
@@ -95,7 +100,7 @@ export default function CollabPage() {
         if (!data.session) throw new Error("No session found");
         const qid = data.session.questionId;
 
-        // 2️⃣ Fetch question details from Question Service
+        // Fetch question details from Question Service
         const questionBaseUrl = process.env.NEXT_PUBLIC_QUESTION_BASE_URL || 'http://localhost:5050';
         console.log('[CollabPage] Fetching question with baseUrl:', questionBaseUrl);
         const qres = await fetch(`${questionBaseUrl}/questions/${qid}`);

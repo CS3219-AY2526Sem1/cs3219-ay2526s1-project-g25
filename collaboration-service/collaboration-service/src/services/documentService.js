@@ -1,7 +1,7 @@
 import { redisRepo } from "../repos/redisRepo.js";
 
 export async function getOrCreateDoc(sessionId) {
-  const key = `document:${sessionId}`;
+  const key = `collab:document:${sessionId}`;
   const found = await redisRepo.getJson(key);
   if (found) {
     return {
