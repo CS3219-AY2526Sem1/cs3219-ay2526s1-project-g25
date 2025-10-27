@@ -17,9 +17,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # TEST: GitHub Actions variables
-      - name: Echoes DockerHub Username
-        run: echo "${{ secrets.DOCKERHUB_USERNAME }}"
-
-      - name: Echoes DockerHub Token
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}"
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
