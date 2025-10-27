@@ -1,0 +1,55 @@
+.peerprep-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  background-size: 200% 200%;
+}
+
+.logo-bracket {
+  color: #c084fc; /* purple glow */
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin: 0 4px;
+  display: inline-block;
+  transform-style: preserve-3d;
+}
+
+.logo-text {
+  background: linear-gradient(90deg, #a855f7, #d8b4fe, #a855f7);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 2.2rem;
+  font-weight: 900;
+  animation: gradientShift 6s linear infinite;
+  text-transform: none;
+}
+
+.tagline {
+  font-size: 0.9rem;
+  color: #d8b4fe;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
