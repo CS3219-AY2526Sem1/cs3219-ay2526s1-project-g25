@@ -1,21 +1,10 @@
-<<<<<<< HEAD
-node_modules/
-.env
-.env.test
-CS3219_AY2526S1_ ProjectDocument.pdf
-matching-service/
-question-service/
-redis-windows.zip
-redis/
-
-=======
 # Node
 node_modules/
-package-lock.json
 
 # Env files
 .env
 .env.local
+.env.test
 
 # Coverage reports
 coverage/
@@ -30,4 +19,3 @@ build/
 # Logs
 npm-debug.log*
 yarn-debug.log*
->>>>>>> 43a94c3 (chore: update .gitignore to exclude node_modules, coverage, and env files)
