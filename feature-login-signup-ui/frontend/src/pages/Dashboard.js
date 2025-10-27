@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import authService from '../services/authService';
 import UserProfileDropdown from '../components/UserProfileDropdown';
 import './Dashboard.css';
+import PeerPrepLogo from '../components/PeerPrepLogo';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -32,8 +33,7 @@ function Dashboard() {
       <div className="dashboard-header">
         <div className="header-content">
           <div className="logo-section">
-            <span className="logo-icon">💡</span>
-            <span className="logo-text">PeerPrep</span>
+            <PeerPrepLogo size="text-2xl" />
           </div>
           <div className="user-section">
             <UserProfileDropdown />

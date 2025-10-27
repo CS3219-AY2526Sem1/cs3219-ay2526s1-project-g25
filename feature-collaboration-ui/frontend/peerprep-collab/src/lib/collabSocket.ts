@@ -1,9 +1,11 @@
 export function connectCollabSocket(sessionId: string, userId: string, onMessage: (msg: any) => void) {
-    const wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3004/ws';
+    let wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004/ws";
+
+    if (!wsUrl.endsWith("/ws")) wsUrl = wsUrl.replace(/\/?$/, "/ws");
+
     const fullUrl = `${wsUrl}?sessionId=${sessionId}&userId=${userId}`;
-    console.log('[CollabSocket] Connecting to WebSocket:', fullUrl);
-    console.log('[CollabSocket] SessionId:', sessionId, 'UserId:', userId);
-    
+        console.log("[CollabSocket] Connecting to:", fullUrl);
+
     const ws = new WebSocket(fullUrl);
 
     ws.onopen = (e) => {
@@ -15,18 +17,14 @@ export function connectCollabSocket(sessionId: string, userId: string, onMessage
         onMessage(JSON.parse(e.data));
     };
 
-    ws.onerror = (e) => {
-        console.error("[CollabSocket] WebSocket error:", e);
-        console.error("[CollabSocket] Error details:", {
-            readyState: ws.readyState,
-            url: fullUrl,
-            sessionId,
-            userId
-        });
-    };
-
-    ws.onclose = (e) => {
-        console.log("[CollabSocket] WebSocket closed:", e.code, e.reason);
+    ws.onclose = (evt) => {
+        const { code, reason } = evt;
+        const normal = code === 1000 || code === 1001; // normal close or page unload/HMR
+        if (!normal) {
+            console.warn("[CollabSocket] WebSocket closed unexpectedly:", code, reason);
+        } else {
+            console.log("[CollabSocket] WebSocket closed normally.");
+        }
     };
 
     const send = (data: any) => {
