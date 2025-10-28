@@ -15,7 +15,7 @@ import * as Y from "yjs";
 
 
 export default function CodePane({ question }: { question: any }) {
-    const [language, setLanguage] = useState("python");
+    const [language, setLanguage] = useState("python"); // Default to Python
     // const [isDocInitialized, setDocInitialized] = useState(false);
     const [code, setCode] = useState("");
     // const [docVersion, setDocVersion] = useState(0);
@@ -158,7 +158,9 @@ export default function CodePane({ question }: { question: any }) {
                 // Don't update if it's from the current user
                 if (msg.userId !== userId) {
                     setLanguage(msg.language);
-                    setCode(""); // Clear code when language changes
+                    setCurrentLanguage(msg.language); // Update global store
+                    // DON'T clear code - let users keep their work even if language changes
+                    // The YJS document will handle the code persistence
                     setLanguageChangeUser(msg.userId);
                     
                     // Clear the indicator after 3 seconds
@@ -219,6 +221,19 @@ export default function CodePane({ question }: { question: any }) {
         ws.onopen = () => console.log("[Yjs] Connected", wsUrl);
 
         ws.onmessage = (evt) => {
+            // Handle string messages (e.g., session:end)
+            if (typeof evt.data === "string") {
+                try {
+                    const msg = JSON.parse(evt.data);
+                    if (msg.type === "session:end") {
+                        console.log("[CodePane] Received session:end via YJS WebSocket");
+                        window.dispatchEvent(new CustomEvent('session-end', { detail: msg }));
+                    }
+                } catch (e) {
+                    // Not JSON, ignore
+                }
+                return;
+            }
             const update = new Uint8Array(evt.data as ArrayBuffer);
             Y.applyUpdate(ydoc, update);
         };
@@ -479,7 +494,7 @@ export default function CodePane({ question }: { question: any }) {
                        onChange={(e) => {
                            const newLanguage = e.target.value;
                            setLanguage(newLanguage);
-                           // Don't clear code when user changes language - preserve existing content
+                           setCurrentLanguage(newLanguage); // Update global store
                            
                            // Broadcast language change to other users
                            sendMsg({

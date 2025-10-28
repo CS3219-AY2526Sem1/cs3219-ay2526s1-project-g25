@@ -17,7 +17,23 @@ export const redisClient = createClient({
 
 redisClient.on('connect', () => console.log('[Redis] Connected successfully'));
 redisClient.on('ready', () => console.log('[Redis] Ready for commands'));
-redisClient.on('error', (err) => console.error('[Redis] Error:', err));
+redisClient.on('error', (err) => {
+  console.error('[Redis] Error:', err);
+  if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') {
+    console.log('[Redis] Connection lost, will attempt to reconnect...');
+  }
+});
+redisClient.on('end', () => {
+  console.log('[Redis] Connection ended');
+  isConnected = false;
+});
+redisClient.on('reconnecting', () => {
+  console.log('[Redis] Reconnecting...');
+});
+redisClient.on('close', () => {
+  console.log('[Redis] Connection closed');
+  isConnected = false;
+});
 
 // Connect to Redis
 let isConnected = false;

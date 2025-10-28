@@ -118,25 +118,87 @@ async getStatus(userId) {
    *  User manually leaves the queue
    *  ─────────────────────────────── */
   async leave(userId) {
-    // 1  Fetch the waiter from Redis
+    console.log(`[leave] Starting cleanup for user ${userId}`);
+    
+    // 1 Fetch the waiter from Redis
     const waiter = await redisClient.hGetAll(`waiter:${userId}`);
-    if (!waiter || !waiter.status) {
-      return { removed: false, message: "User not found or not in queue" };
+    console.log(`[leave] Retrieved waiter for ${userId}:`, JSON.stringify(waiter));
+    
+    let matchToCleanup = null;
+    
+    // If we have a matchId, use it; otherwise scan for matches
+    if (waiter && waiter.matchId) {
+      console.log(`[leave] User ${userId} has matchId ${waiter.matchId}`);
+      try {
+        matchToCleanup = await redisClient.hGetAll(`match:${waiter.matchId}`);
+        console.log(`[leave] Retrieved match ${waiter.matchId}:`, JSON.stringify(matchToCleanup));
+      } catch (err) {
+        console.error(`[leave] Failed to retrieve match ${waiter.matchId}:`, err);
+      }
+    } else {
+      // No matchId in waiter, scan all matches
+      console.log(`[leave] No matchId in waiter, scanning all matches`);
+      try {
+        const allMatchKeys = await redisClient.keys("match:*");
+        console.log(`[leave] Scanning ${allMatchKeys.length} match records`);
+        for (const matchKey of allMatchKeys) {
+          const match = await redisClient.hGetAll(matchKey);
+          if (match && (match.userA === userId || match.userB === userId)) {
+            matchToCleanup = match;
+            console.log(`[leave] Found match ${matchKey} involving ${userId}`);
+            break;
+          }
+        }
+      } catch (err) {
+        console.error(`[leave] Error scanning matches:`, err);
+      }
     }
 
-    // 2 If the user is already matched, prevent leaving
-    if (waiter.status === "MATCHED") {
-      return { removed: false, message: "User already matched" };
+    // 2 Clean up the match if found
+    if (matchToCleanup && Object.keys(matchToCleanup).length > 0) {
+      const matchId = matchToCleanup.matchId || waiter?.matchId;
+      const matchKey = `match:${matchId}`;
+      
+      console.log(`[leave] Cleaning up match ${matchKey}`);
+      
+      // Mark match as closed first
+      await redisClient.hSet(matchKey, 'closed', 'true');
+      console.log(`[leave] Marked match ${matchKey} as closed`);
+      
+      // Clean up the other user in the match
+      const otherUserId = matchToCleanup.userA === userId ? matchToCleanup.userB : matchToCleanup.userA;
+      if (otherUserId && otherUserId !== userId) {
+        console.log(`[leave] Cleaning up other user ${otherUserId}`);
+        
+        // Get other user's waiter to remove from queues
+        const otherWaiter = await redisClient.hGetAll(`waiter:${otherUserId}`);
+        if (otherWaiter && otherWaiter.userId) {
+          await this._removeFromAllQueues(otherWaiter);
+          console.log(`[leave] Removed ${otherUserId} from all queues`);
+        }
+        
+        // Delete the other user's waiter record
+        await redisClient.del(`waiter:${otherUserId}`);
+        console.log(`[leave] Deleted waiter for ${otherUserId}`);
+      }
+      
+      // Delete the match record
+      await redisClient.del(matchKey);
+      console.log(`[leave] Deleted match record ${matchKey}`);
     }
 
-    // 3 Remove user from all queues
-    await this._removeFromAllQueues(waiter);
+    // 3 Remove user from all queues (if still in queue)
+    if (waiter && waiter.userId) {
+      await this._removeFromAllQueues(waiter);
+      console.log(`[leave] Removed ${userId} from all queues`);
+    }
 
     // 4 Delete the waiter record
     await redisClient.del(`waiter:${userId}`);
+    console.log(`[leave] Deleted waiter for ${userId}`);
 
-    console.log(`[leave] User ${userId} removed from all queues`);
-    return { removed: true, message: "User successfully removed from queue" };
+    console.log(`[leave] User ${userId} completely cleaned up`);
+    return { removed: true, message: "User successfully removed from queue and all match state" };
   }
 
   
@@ -145,15 +207,121 @@ async getStatus(userId) {
    *  Add user to queue
    *───────────────────────────────────────────────*/
   async join({ userId, selectedTopics, selectedDifficulty }) {
+    console.log(`[join] Attempting to join for user ${userId} with topics=${JSON.stringify(selectedTopics)}, difficulty=${selectedDifficulty}`);
+    
     const existing = await redisClient.hGetAll(`waiter:${userId}`);
     if (existing && existing.status && existing.status.toUpperCase() === "MATCHED") {
-      const match = await redisClient.hGetAll(`match:${existing.matchId}`);
-      if (match && Object.keys(match).length) {
+      console.log(`[join] User ${userId} has MATCHED status, matchId=${existing.matchId}, checking match...`);
+      
+      // Check if match record exists
+      let match = null;
+      if (existing.matchId) {
+        match = await redisClient.hGetAll(`match:${existing.matchId}`);
+        console.log(`[join] Retrieved match ${existing.matchId}, keys=${Object.keys(match).length}, closed=${match.closed}`);
+      }
+      
+      // If match doesn't exist or is closed, clean it up
+      if (!match || Object.keys(match).length === 0 || match.closed === "true") {
+        console.log(`[join] Match ${existing.matchId} is closed or missing, cleaning up stale state`);
+        await redisClient.del(`waiter:${userId}`);
+        
+        // Clean up other user if match exists
+        if (match && Object.keys(match).length > 0) {
+          const otherUserId = match.userA === userId ? match.userB : match.userA;
+          if (otherUserId && otherUserId !== userId) {
+            // Get other user's waiter to remove them from queues properly
+            const otherWaiter = await redisClient.hGetAll(`waiter:${otherUserId}`);
+            if (otherWaiter && otherWaiter.userId) {
+              // Remove from queues
+              if (otherWaiter.selectedTopics) {
+                try {
+                  const topics = JSON.parse(otherWaiter.selectedTopics);
+                  for (const t of topics) {
+                    for (const d of DIFFICULTIES) {
+                      await redisClient.zRem(`queue:${t}:${d}`, otherUserId);
+                    }
+                  }
+                } catch (e) {
+                  console.error(`[join] Error removing ${otherUserId} from queues:`, e);
+                }
+              }
+            }
+            await redisClient.del(`waiter:${otherUserId}`);
+            console.log(`[join] Also cleaned up ${otherUserId}`);
+          }
+          await redisClient.del(`match:${existing.matchId}`);
+        }
+      } else {
+        // Match is active - check if it's actually stale
         match.question = JSON.parse(match.question || "{}");
-        return { status: "already_matched", match };
+        const matchAge = nowMs() - Number(match.createdAt || "0");
+        const hasSessionId = match.sessionId && match.sessionId.length > 0;
+        
+        console.log(`[join] Match age=${matchAge}ms, hasSessionId=${hasSessionId}, sessionId=${match.sessionId}`);
+        
+        // If match doesn't have a sessionId and is older than 30 seconds, it's stale
+        // OR if it has a sessionId, check if the session still exists
+        let isStale = !hasSessionId && matchAge > 30000;
+        
+        // If match has sessionId, verify the session still exists
+        if (hasSessionId) {
+          try {
+            const axios = (await import('axios')).default;
+            const collabServiceUrl = process.env.COLLAB_SERVICE_BASE_URL || "http://localhost:3004";
+            const sessionRes = await axios.get(`${collabServiceUrl}/sessions/${match.sessionId}`, { timeout: 2000 });
+            const session = sessionRes.data?.session;
+            
+            // If session doesn't exist or is ended, match is stale
+            if (!session || session.status === "ended") {
+              console.log(`[join] Session ${match.sessionId} is ended or doesn't exist, match is stale`);
+              isStale = true;
+            }
+          } catch (err) {
+            // If we can't reach the collaboration service, assume match is stale if it's old
+            console.log(`[join] Could not verify session ${match.sessionId}, assuming match is stale`);
+            isStale = matchAge > 60000; // If session check fails and match is >60s old, consider it stale
+          }
+        }
+        
+        if (isStale || matchAge > 1800000) {
+          console.log(`[join] Match ${existing.matchId} is stale or too old (age=${matchAge}ms, stale=${isStale}), cleaning up`);
+          await redisClient.del(`waiter:${userId}`);
+          await redisClient.del(`match:${existing.matchId}`);
+          
+          // Also clean up the other user if they exist
+          const otherUserId = match.userA === userId ? match.userB : match.userA;
+          if (otherUserId && otherUserId !== userId) {
+            // Get other user's waiter to remove them from queues properly
+            const otherWaiter = await redisClient.hGetAll(`waiter:${otherUserId}`);
+            if (otherWaiter && otherWaiter.userId) {
+              // Remove from queues
+              if (otherWaiter.selectedTopics) {
+                try {
+                  const topics = JSON.parse(otherWaiter.selectedTopics);
+                  for (const t of topics) {
+                    for (const d of DIFFICULTIES) {
+                      await redisClient.zRem(`queue:${t}:${d}`, otherUserId);
+                    }
+                  }
+                } catch (e) {
+                  console.error(`[join] Error removing ${otherUserId} from queues:`, e);
+                }
+              }
+            }
+            await redisClient.del(`waiter:${otherUserId}`);
+            console.log(`[join] Also cleaned up ${otherUserId}`);
+          }
+        } else {
+          console.log(`[join] User ${userId} is in an active match (age ${matchAge}ms), returning already_matched`);
+          return { status: "already_matched", match };
+        }
       }
     }
 
+    // Delete any existing waiter record to start fresh
+    await redisClient.del(`waiter:${userId}`);
+    console.log(`[join] Cleared any stale waiter record for ${userId}`);
+    
     const enqueueAt = nowMs();
     const waiter = {
       userId,
