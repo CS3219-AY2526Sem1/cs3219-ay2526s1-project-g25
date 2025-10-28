@@ -2,6 +2,7 @@
 import { motion } from "framer-motion"
 import { Clock, XCircle, Users, Sparkles, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
+import ReactMarkdown from "react-markdown"
 
 export default function MatchStatusCard({
   phase,
@@ -264,9 +265,9 @@ export default function MatchStatusCard({
                 {matchData.question.title || "Untitled Question"}
               </p>
               {matchData.question.description && (
-                <p className="text-slate-300 mt-2">
-                  {matchData.question.description}
-                </p>
+                <div className="text-slate-300 mt-2 prose prose-invert prose-sm max-w-none">
+                  <ReactMarkdown>{matchData.question.description}</ReactMarkdown>
+                </div>
               )}
             </motion.div>
           )}

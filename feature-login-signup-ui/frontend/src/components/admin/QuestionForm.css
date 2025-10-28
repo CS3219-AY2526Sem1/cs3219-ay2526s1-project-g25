@@ -88,13 +88,23 @@
 
 .image-preview {
   position: relative;
-  max-width: 300px;
+  max-width: 400px;
+  max-height: 300px;
+  display: inline-block;
+  margin-top: 12px;
 }
 
 .image-preview img {
-  width: 100%;
+  max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
   border-radius: 8px;
   border: 2px solid #e0e0e0;
+  object-fit: contain;
+  background: #f8f9fa;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .remove-image {

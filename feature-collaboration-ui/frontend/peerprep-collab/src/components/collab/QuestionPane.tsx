@@ -4,7 +4,8 @@ import TagPill from "./TagPill";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, LogOut, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 
 export default function QuestionPane({ question, sendMsg, sessionId, userId }) {
   const router = useRouter();
@@ -53,11 +54,29 @@ export default function QuestionPane({ question, sendMsg, sessionId, userId }) {
   const handleEndSession = async () => {
     setIsEnding(true);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}/leave`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
+      console.log("[QuestionPane] Ending session, sending session:end message");
+      // Send session:end message via WebSocket to notify other users
+      sendMsg({ type: "session:end" });
+      console.log("[QuestionPane] session:end message sent successfully");
+      
+      // Also call the leave endpoint to trigger matching service cleanup
+      console.log("[QuestionPane] Calling leave endpoint to clean up matching service");
+      try {
+        const leaveResponse = await fetch(`${process.env.NEXT_PUBLIC_COLLAB_BASE_URL}/sessions/${sessionId}/leave`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        });
+        if (!leaveResponse.ok) {
+          console.error(`[QuestionPane] Leave endpoint returned ${leaveResponse.status}`);
+        } else {
+          const leaveData = await leaveResponse.json();
+          console.log("[QuestionPane] Leave endpoint response:", JSON.stringify(leaveData));
+        }
+      } catch (err) {
+        console.error("[QuestionPane] Failed to call leave endpoint:", err);
+      }
+      
       const dashboardUrl =
         process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
       setTimeout(() => (window.location.href = dashboardUrl), 1200);
@@ -138,7 +157,9 @@ export default function QuestionPane({ question, sendMsg, sessionId, userId }) {
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-2">
             Description
           </h3>
-          <p className="text-slate-300 leading-relaxed">{description}</p>
+          <div className="text-slate-300 leading-relaxed prose prose-invert prose-sm max-w-none">
+            <ReactMarkdown>{description}</ReactMarkdown>
+          </div>
         </div>
 
         {image_url && (
