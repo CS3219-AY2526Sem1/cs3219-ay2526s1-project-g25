@@ -3,6 +3,7 @@
 import type React from "react"
 import { motion } from "framer-motion"
 import { Sparkles, Lightbulb, Bug, Code } from "lucide-react"
+import ReactMarkdown from "react-markdown"
 
 interface AIChatBubbleProps {
   children: React.ReactNode
@@ -60,10 +61,37 @@ export default function AIChatBubble({ children, type = "ai" }: AIChatBubbleProp
         </div>
 
         {/* Message Content */}
-        <div className="text-slate-100 text-sm leading-relaxed prose prose-invert prose-sm max-w-none overflow-hidden">
-          {/* Support for formatted text - split by line breaks and code blocks */}
+        <div className="text-slate-100 text-sm leading-relaxed max-w-none overflow-hidden">
+          {/* Support for markdown formatted text */}
           {typeof children === "string" ? (
-            <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{children}</div>
+            <ReactMarkdown
+              components={{
+                // Custom styling for markdown elements
+                h1: ({node, ...props}) => <h1 className="text-xl font-bold text-slate-100 mt-4 mb-2" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-lg font-bold text-slate-200 mt-3 mb-2" {...props} />,
+                h3: ({node, ...props}) => <h3 className="text-base font-bold text-slate-300 mt-2 mb-1" {...props} />,
+                p: ({node, ...props}) => <p className="mb-3 leading-relaxed break-words" {...props} />,
+                strong: ({node, ...props}) => <strong className="font-bold text-purple-300" {...props} />,
+                em: ({node, ...props}) => <em className="italic" {...props} />,
+                code: ({node, inline, ...props}) => 
+                  inline ? (
+                    <code className="bg-slate-800 px-1.5 py-0.5 rounded text-purple-300 text-xs font-mono inline-block" {...props} />
+                  ) : (
+                    <code className="block bg-slate-800 p-3 rounded-lg text-slate-200 text-xs font-mono my-3 w-fit max-w-full overflow-x-auto whitespace-pre-wrap break-words" {...props} />
+                  ),
+                pre: ({node, ...props}) => (
+                  <pre className="bg-slate-800 p-3 rounded-lg text-slate-200 text-xs font-mono my-3 overflow-x-auto max-w-full whitespace-pre-wrap break-words" {...props} />
+                ),
+                ul: ({node, ...props}) => <ul className="list-disc list-inside mb-3 space-y-1" {...props} />,
+                ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-3 space-y-1" {...props} />,
+                li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                blockquote: ({node, ...props}) => (
+                  <blockquote className="border-l-4 border-purple-500 pl-4 italic text-slate-300 my-3" {...props} />
+                ),
+              }}
+            >
+              {children as string}
+            </ReactMarkdown>
           ) : (
             children
           )}

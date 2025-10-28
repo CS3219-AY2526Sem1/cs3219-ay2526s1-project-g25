@@ -4,7 +4,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const apiKey = process.env.GOOGLE_AI_API_KEY || "";
+
+if (!apiKey) {
+  console.warn("[AI Service] Warning: GOOGLE_AI_API_KEY not found. AI features will not work.");
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // Conversation history per session (in-memory for now, can be moved to Redis later)
 const sessionConversations = new Map();
@@ -28,6 +34,11 @@ function getConversationHistory(sessionId) {
  */
 export async function generateAIResponse(sessionId, userMessage, context = {}) {
   try {
+    // Check if API key is configured
+    if (!apiKey) {
+      throw new Error("AI service is not configured. Please set GOOGLE_AI_API_KEY in your environment variables.");
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     // Build system context
@@ -88,7 +99,17 @@ IMPORTANT GUIDELINES:
 
   } catch (error) {
     console.error("[AI Service] Error generating response:", error);
-    throw new Error("Failed to generate AI response: " + error.message);
+    
+    // Provide more helpful error messages
+    if (error.message.includes("API_KEY")) {
+      throw new Error("AI service API key is invalid. Please check your configuration.");
+    } else if (error.message.includes("quota") || error.message.includes("429")) {
+      throw new Error("AI service quota exceeded. Please try again later.");
+    } else if (error.message.includes("configuration")) {
+      throw error; // Re-throw configuration errors as-is
+    } else {
+      throw new Error("Failed to generate AI response: " + error.message);
+    }
   }
 }
 
@@ -99,11 +120,19 @@ IMPORTANT GUIDELINES:
  * @param {string} language - Programming language
  * @returns {Promise<object>} Analysis result
  */
-export async function analyzeCode(sessionId, code, language) {
+export async function analyzeCode(sessionId, code, language = "python") {
   try {
+    if (!apiKey) {
+      throw new Error("AI service is not configured");
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const prompt = `Analyze the following ${language} code and provide:
+    console.log(`[AI Service] Analyzing code in language: ${language}`);
+    
+    const prompt = `You are analyzing ${language.toUpperCase()} code. The code provided is definitely ${language} code.
+
+Analyze the following ${language} code and provide:
 1. Code quality assessment (1-10)
 2. Time complexity
 3. Space complexity
@@ -146,6 +175,10 @@ Please provide your analysis in a structured, concise format.`;
  */
 export async function getHint(sessionId, question, currentCode = "") {
   try {
+    if (!apiKey) {
+      throw new Error("AI service is not configured");
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     let prompt = `Provide a helpful hint (not the complete solution) for this coding problem:
@@ -181,6 +214,10 @@ DIFFICULTY: ${question.difficulty}
  */
 export async function debugError(sessionId, code, error, language) {
   try {
+    if (!apiKey) {
+      throw new Error("AI service is not configured");
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Help debug this ${language} code that's producing an error:
@@ -225,6 +262,10 @@ export function clearConversationHistory(sessionId) {
  */
 export async function explainConcept(concept, language = "general") {
   try {
+    if (!apiKey) {
+      throw new Error("AI service is not configured");
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Explain the concept of "${concept}" in the context of ${language} programming.
