@@ -5,6 +5,9 @@
 .env.test.local
 .env.production.local
 
+# GPG env file cnryption passphrase
+.gpg.passphrase
+
 # Dependencies
 node_modules/
 npm-debug.log*

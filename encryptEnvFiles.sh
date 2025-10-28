@@ -1,0 +1,4 @@
+gpg --batch --yes --passphrase-file .gpg.passphrase -c collaboration-service/collaboration-service/.env
+gpg --batch --yes --passphrase-file .gpg.passphrase -c matching-service/matching-service/.env
+gpg --batch --yes --passphrase-file .gpg.passphrase -c user-service/user-service/.env
+gpg --batch --yes --passphrase-file .gpg.passphrase -c question-service/question-service/.env
