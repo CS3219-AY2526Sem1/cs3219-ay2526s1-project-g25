@@ -1,0 +1,32 @@
+services:
+  collaboration-service:
+    build:
+      context: ./collaboration-service/collaboration-service
+    ports:
+      - "3004:3004"
+    env_file:
+      - ./collaboration-service/collaboration-service/.env
+
+  matching-service:
+    build:
+      context: ./matching-service/matching-service
+    ports:
+      - "4001:4001"
+    env_file:
+      - ./matching-service/matching-service/.env
+
+  question-service:
+    build:
+      context: ./question-service/question-service
+    ports:
+      - "5050:5050"
+    env_file:
+      - ./question-service/question-service/.env
+
+  user-service:
+    build:
+      context: ./user-service/user-service
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./user-service/user-service/.env
