@@ -80,4 +80,9 @@ export const redisRepo = {
     const res = await redisClient.sIsMember(key, member);
     return res === 1 || res === true;
   },
+
+  async sRem(key, ...members) {
+    // node-redis v4 expects a flat array, not nested
+    await redisClient.sRem(key, members);
+  },
 };

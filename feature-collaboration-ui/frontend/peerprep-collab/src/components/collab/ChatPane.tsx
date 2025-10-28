@@ -9,6 +9,7 @@ import { useEffect, useState } from "react"
 import { connectCollabSocket } from "@/lib/collabSocket"
 import { sendAIMessage, getHint, analyzeCode, debugError } from "@/lib/aiService"
 import { getParams } from "@/lib/helpers"
+import { useCollabStore } from "@/lib/collabStore"
 
 export default function ChatPane() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai">("chat")
@@ -19,10 +20,12 @@ export default function ChatPane() {
 
   const { sessionId, userId } = getParams()
 
-  // Initialize WebSocket
+    // Initialize WebSocket
  useEffect(() => {
   console.log("🔌 Opening collab socket...");
   const { ws, send } = connectCollabSocket(sessionId, userId, (msg) => {
+    console.log("[ChatPane] Received message:", msg.type);
+    
     // Handle regular chat messages
     if (msg.type === "chat:message") {
       if (msg.userId !== userId) {
@@ -32,20 +35,34 @@ export default function ChatPane() {
 
     // Handle AI messages
     if (msg.type === "ai:message" || msg.type === "ai" || msg.type?.startsWith("ai-")) {
+      console.log("[ChatPane] Received AI message:", msg);
       setAIMessages((prev) => [...prev, msg]);
       setIsAILoading(false);
+    }
+    
+    // Handle session end
+    if (msg.type === "session:end") {
+      console.log("[ChatPane] Session ended, broadcasting to page");
+      // Trigger session end event that the collab page listens to
+      window.dispatchEvent(new CustomEvent('session-end', { detail: msg }));
     }
 
     // Initialize chat history
     if (msg.type === "init") {
+      console.log("[ChatPane] Initializing with chat history:", msg);
       if (Array.isArray(msg.chat)) {
         setMessages(msg.chat);
       }
+      if (Array.isArray(msg.aiChat)) {
+        console.log("[ChatPane] Initializing AI chat history:", msg.aiChat);
+        setAIMessages(msg.aiChat);
+      }
     }
+    
     if (msg.type === "session:end") {
         alert("Your partner has ended the session. Returning to dashboard...");
         window.location.href = "http://localhost:3000/dashboard";
-}
+    }
   });
 
   setSendMsg(() => send);
@@ -55,7 +72,7 @@ export default function ChatPane() {
     console.log("❌ Closing collab socket...");
     ws.close();
   };
-}, [sessionId, userId]); // ✅ Keep dependency array exact
+}, [sessionId, userId]); // Don't include currentLanguage - it causes WebSocket to reconnect
 
 
   // Handle sending a regular chat message
@@ -120,7 +137,10 @@ export default function ChatPane() {
   async function handleAnalyzeCode() {
     setIsAILoading(true)
     try {
-      const result = await analyzeCode(sessionId)
+      // Get current language from store at the time of analysis
+      const currentLanguage = useCollabStore.getState().currentLanguage
+      console.log(`[ChatPane] Analyzing code with language: ${currentLanguage}`)
+      const result = await analyzeCode(sessionId, undefined, currentLanguage)
       setIsAILoading(false)
 
       if (result.success && result.analysis) {

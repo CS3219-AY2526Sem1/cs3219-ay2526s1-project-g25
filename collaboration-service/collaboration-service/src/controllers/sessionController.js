@@ -121,11 +121,36 @@ export const leaveSession = async (req, res) => {
     delete pres[userId];
     await redisRepo.setJson(`collab:presence:${s.id}`, pres);
 
+    // ✅ Remove user from participants set
+    await redisRepo.sRem(`collab:session:${s.id}:participants`, userId);
+    console.log(`[leaveSession] Removed ${userId} from participants set`);
+    
+        // ✅ Clean up matching service state
+    try {
+      const matchingServiceUrl = process.env.NEXT_PUBLIC_MATCHING_SERVICE_URL || "http://localhost:4001";
+      const response = await axios.post(`${matchingServiceUrl}/match/leave`, { userId });
+      console.log(`[leaveSession] Matching service cleanup for ${userId}:`, response.status);
+    } catch (err) {
+      console.warn(`[leaveSession] Failed to clean up matching service for ${userId}:`, err.message);
+    }
+
     let status = "active";
     if (Object.keys(pres).length === 0) {
       s.status = "ended";
       await redisRepo.setJson(`collab:session:${s.id}`, s);
       status = "ended";
+      
+      // Clean up both users from matching service when session ends completely
+      try {
+        const matchingServiceUrl = process.env.NEXT_PUBLIC_MATCHING_SERVICE_URL || "http://localhost:4001";
+        const users = [s.userA, s.userB].filter(Boolean);
+        for (const pid of users) {
+          const response = await axios.post(`${matchingServiceUrl}/match/leave`, { userId: pid });
+          console.log(`[leaveSession] Matching service cleanup for ${pid}:`, response.status);
+        }
+      } catch (err) {
+        console.warn(`[leaveSession] Failed to clean up all users from matching service:`, err.message);
+      }
     }
 
     // Broadcast session:end to all remaining participants

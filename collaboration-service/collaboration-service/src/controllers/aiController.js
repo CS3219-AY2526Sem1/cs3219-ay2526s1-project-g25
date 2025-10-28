@@ -93,20 +93,101 @@ export const chatWithAI = async (req, res) => {
 export const analyzeSessionCode = async (req, res) => {
   try {
     const sessionId = req.params.id;
+    console.log(`[AI Controller] analyzeSessionCode called for session ${sessionId}`);
     
     // Verify session exists
     const session = await redisRepo.getJson(`collab:session:${sessionId}`);
     if (!session) {
+      console.error(`[AI Controller] Session ${sessionId} not found in Redis`);
       return res.status(404).json({ error: "Session not found" });
     }
 
-    // Get current code
-    const doc = await redisRepo.getJson(`collab:document:${sessionId}`);
-    const code = doc?.text || req.body.code || "";
-    const language = req.body.language || "python";
+    // Get current code - try multiple sources
+    let doc = await redisRepo.getJson(`collab:document:${sessionId}`);
+    console.log(`[AI Controller] Document from Redis:`, doc ? 'exists' : 'null');
+    let code = doc?.text || req.body.code || "";
+    
+    // Get current language from request body or Redis storage
+    let language = req.body.language;
+    if (!language) {
+      // Try to get language from Redis storage
+      const langData = await redisRepo.getJson(`collab:language:${sessionId}`);
+      language = langData?.language || "python";
+      console.log(`[AI Controller] Got language from Redis storage: ${language}`);
+    } else {
+      language = language;
+    }
 
-    if (!code) {
-      return res.status(400).json({ error: "No code to analyze" });
+    console.log(`[AI Controller] Code length from Redis: ${code.length}`);
+    console.log(`[AI Controller] Language for analysis: ${language}`);
+
+    // If no code from Redis, try to get from YJS in-memory storage
+    if (!code || code.trim() === "") {
+      console.log(`[AI Controller] No code in Redis, trying YJS storage...`);
+      try {
+        const { rooms } = await import("../ws/yjsGateway.js");
+        console.log(`[AI Controller] YJS rooms Map size: ${rooms.size}`);
+        console.log(`[AI Controller] Looking for room with sessionId: ${sessionId}`);
+        const room = rooms.get(sessionId);
+        
+        if (room && room.doc) {
+          console.log(`[AI Controller] Room found, getting text from YJS...`);
+          
+          // Try multiple field names (code is what CodePane uses)
+          const possibleFields = ['code', 'monaco', 'text', 'content', 'doc'];
+          let foundCode = '';
+          
+          for (const field of possibleFields) {
+            try {
+              const ytext = room.doc.getText(field);
+              const text = ytext.toString();
+              console.log(`[AI Controller] YJS field '${field}' has length: ${text.length}`);
+              if (text.trim() !== '') {
+                foundCode = text;
+                console.log(`[AI Controller] Found code in field '${field}'`);
+                break;
+              }
+            } catch (e) {
+              // Field doesn't exist, try next
+            }
+          }
+          
+          // Also try to get the document state
+          try {
+            const state = Y.encodeStateAsUpdate(room.doc);
+            console.log(`[AI Controller] YJS document state size: ${state.length} bytes`);
+            
+            // Try to get all text fields
+            console.log(`[AI Controller] Inspecting YJS document structure...`);
+          } catch (e) {
+            console.error(`[AI Controller] Error inspecting document:`, e);
+          }
+          
+          code = foundCode;
+          console.log(`[AI Controller] Final code from YJS storage (length: ${code.length})`);
+          
+          // Save it to Redis for future access
+          if (code && code.trim() !== '') {
+            console.log(`[AI Controller] Saving code to Redis...`);
+            await redisRepo.setJson(`collab:document:${sessionId}`, {
+              text: code,
+              version: Date.now()
+            });
+            console.log(`[AI Controller] Saved to Redis successfully`);
+          } else {
+            console.log(`[AI Controller] No code found in YJS document`);
+          }
+        } else {
+          console.log(`[AI Controller] No room found in YJS storage for session ${sessionId}`);
+          console.log(`[AI Controller] Available sessions in YJS:`, Array.from(rooms.keys()));
+        }
+      } catch (err) {
+        console.error("[AI Controller] Could not access YJS storage:", err);
+      }
+    }
+
+    if (!code || code.trim() === "") {
+      return res.status(400).json({ error: "No code to analyze. Please write some code in the editor first." });
     }
 
     // Analyze code

@@ -29,13 +29,25 @@ export default function CollabPage() {
   /* ----------  WebSocket  ---------- */
   useEffect(() => {
     if (!sessionId || !userId) return;
-    const wsUrl = `${process.env.NEXT_PUBLIC_COLLAB_WS_URL}/ws?sessionId=${sessionId}&userId=${userId}`;
+    const baseUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004";
+    const wsUrl = `${baseUrl}/ws?sessionId=${sessionId}&userId=${userId}`;
+    console.log("[CollabPage] Connecting to WebSocket:", wsUrl);
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
+    ws.onopen = () => {
+      console.log("[CollabPage] WebSocket connected to /ws");
+    };
+    
+    ws.onerror = (error) => {
+      console.error("[CollabPage] WebSocket error:", error);
+    };
+    
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
+      console.log("[CollabPage] Received message:", msg.type);
       if (msg.type === "session:end") {
+        console.log("[CollabPage] Received session:end message:", msg);
         document.body.style.transition = "opacity 0.4s ease";
         document.body.style.opacity = "0";
         setTimeout(() => {
@@ -45,13 +57,36 @@ export default function CollabPage() {
         }, 400);
       }
     };
+    
+    ws.onclose = (event) => {
+      console.log("[CollabPage] WebSocket closed:", event.code, event.reason);
+    };
+    
+    // Listen for session end from other components
+    const handleSessionEnd = (e: CustomEvent) => {
+      const msg = e.detail;
+      console.log("[CollabPage] Session end event received:", msg);
+      document.body.style.transition = "opacity 0.4s ease";
+      document.body.style.opacity = "0";
+      setTimeout(() => {
+        const dashboardUrl =
+          process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
+        window.location.href = dashboardUrl;
+      }, 400);
+    };
+    
+    window.addEventListener('session-end', handleSessionEnd as EventListener);
 
     const sendFunction = (m: any) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m));
       else ws.addEventListener("open", () => ws.send(JSON.stringify(m)), { once: true });
     };
     setSendMsg(() => sendFunction);
-    return () => ws.close();
+    
+    return () => {
+      ws.close();
+      window.removeEventListener('session-end', handleSessionEnd as EventListener);
+    };
   }, [sessionId, userId, router]);
 
   /* ----------  Fetch Question  ---------- */
@@ -62,16 +97,16 @@ export default function CollabPage() {
     // Get user authentication - check URL params first, then localStorage
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get("token");
-    const urlUserId = urlParams.get("userId");
+    const urlUserIdFromParams = urlParams.get("userId");
     
-    console.log('[CollabPage] URL params:', { urlToken: urlToken ? 'present' : 'missing', urlUserId });
+    console.log('[CollabPage] URL params:', { urlToken: urlToken ? 'present' : 'missing', urlUserIdFromParams });
     
     if (urlToken) {
       // Token passed via URL - store it and use it
       console.log('[CollabPage] Using token from URL');
       localStorage.setItem("accessToken", urlToken);
       const payload = parseJwt<{ userId: number }>(urlToken);
-      setUserId(payload?.userId ? String(payload.userId) : urlUserId);
+      setUserId(payload?.userId ? String(payload.userId) : urlUserIdFromParams);
     } else if (isAuthenticated()) {
       // No URL token, check localStorage
       console.log('[CollabPage] Using token from localStorage');
@@ -80,10 +115,10 @@ export default function CollabPage() {
         const payload = parseJwt<{ userId: number }>(token);
         setUserId(payload?.userId ? String(payload.userId) : null);
       }
-    } else if (urlUserId) {
+    } else if (urlUserIdFromParams) {
       // Fallback to URL userId if no token
       console.log('[CollabPage] Using userId from URL as fallback');
-      setUserId(urlUserId);
+      setUserId(urlUserIdFromParams);
     } else {
       console.log('[CollabPage] No authentication found');
     }

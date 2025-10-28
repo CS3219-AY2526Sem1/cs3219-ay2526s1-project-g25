@@ -6,7 +6,19 @@ export function attachYDocToWs(wsUrl: string, doc: Y.Doc) {
   ws.binaryType = "arraybuffer";
 
   const onWsMessage = (evt: MessageEvent) => {
-    if (typeof evt.data === "string") return;
+    // Handle string messages (e.g., session:end)
+    if (typeof evt.data === "string") {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "session:end") {
+          console.log("[YJS Client] Received session:end, dispatching event");
+          window.dispatchEvent(new CustomEvent('session-end', { detail: msg }));
+        }
+      } catch (e) {
+        // Not JSON or not session:end, ignore
+      }
+      return;
+    }
     const update = new Uint8Array(evt.data as ArrayBuffer);
     try { Y.applyUpdate(doc, update); } catch {}
   };

@@ -442,7 +442,15 @@ export function initGateway(wss) {
         // ---- Language Update ----
         if (msg.type === "language:update") {
           try {
-            console.log(`[WS language:update] Broadcasting language update for session ${sessionId}`);
+            console.log(`[WS language:update] Broadcasting language update for session ${sessionId}, language: ${msg.language}`);
+            
+            // Store current language in Redis for AI context
+            await redisRepo.setJson(`collab:language:${sessionId}`, {
+              language: msg.language,
+              updatedBy: userId,
+              timestamp: Date.now()
+            });
+            console.log(`[WS Gateway] Stored language ${msg.language} for session ${sessionId}`);
             
             // Broadcast language update to all clients in the session
             const payload = {
@@ -471,14 +479,28 @@ export function initGateway(wss) {
         // ---- AI Chat Message ----
         if (msg.type === "ai:message") {
           try {
+            console.log(`[WS] AI message received from user ${userId} in session ${sessionId}: ${msg.text?.substring(0, 50)}...`);
+            
             // Get current session data for context
             const session = await redisRepo.getJson(`collab:session:${sessionId}`);
             const doc = await redisRepo.getJson(`collab:document:${sessionId}`);
             
+            // Get current language from message or Redis storage
+            let currentLanguage = msg.language || "python";
+            if (!msg.language) {
+              const langData = await redisRepo.getJson(`collab:language:${sessionId}`);
+              if (langData?.language) {
+                currentLanguage = langData.language;
+                console.log(`[WS Gateway] Using language from Redis: ${currentLanguage}`);
+              }
+            }
+            
+            console.log(`[WS Gateway] AI chat context - language: ${currentLanguage}`);
+            
             // Build context
             const context = {
               code: doc?.text || "",
-              language: msg.language || "python",
+              language: currentLanguage,
               error: msg.error || null,
             };
 
@@ -505,55 +527,74 @@ export function initGateway(wss) {
 
             // Broadcast AI response to all users in the session
             const payload = { type: "ai:message", ...aiMsg };
+            console.log(`[WS] Broadcasting AI response to session ${sessionId}`);
             broadcast(sessionId, payload, null);
             return;
           } catch (error) {
             console.error("[WS Gateway] AI message error:", error);
+            
+            // Send error message to the specific user who requested it
+            const errorMsg = {
+              userId: "ai-assistant",
+              text: `❌ Sorry, I encountered an error: ${error.message}`,
+              ts: Date.now(),
+              type: "ai"
+            };
+            
+            // Also store in AI chat history
+            await redisRepo.pushToList(`collab:ai-chat:${sessionId}`, errorMsg);
+            
+            // Send error response to the requesting user
             ws.send(JSON.stringify({ 
-              type: "error", 
-              error: "AI service error: " + error.message 
+              type: "ai:message", 
+              ...errorMsg
             }));
             return;
           }
         }
 
-          if (msg.type === "session:end") {
-            console.log(`[WS] ${userId} ended session ${sessionId}`);
+        // ---- End Session ----
+        if (msg.type === "session:end") {
+          console.log(`[WS] ${userId} ended session ${sessionId}`);
+          console.log(`[WS] Current room size: ${wsRooms.get(sessionId)?.size || 0}`);
+          console.log(`[WS] Room details:`, Array.from(wsRooms.get(sessionId) || []).map(s => ({ readyState: s.readyState })));
 
-            const payload = {
-              type: "session:end",
-              endedBy: userId,
-              message: "Session has been ended by one of the participants.",
-            };
+          const payload = {
+            type: "session:end",
+            endedBy: userId,
+            message: "Session has been ended by one of the participants.",
+          };
 
-            // ✅ Mark session as ended in Redis
-            const session = await redisRepo.getJson(`collab:session:${sessionId}`);
-            if (session) {
-              session.status = "ended";
-              await redisRepo.setJson(`collab:session:${sessionId}`, session);
-            }
-
-            // ✅ Broadcast to all participants
-            broadcast(sessionId, payload, null);
-
-            // 🕐 Give 1s delay so all clients receive before closing
-            setTimeout(() => {
-              const room = wsRooms.get(sessionId);
-              if (room) {
-                for (const sock of room) {
-                  try {
-                    sock.close(1000, "Session ended");
-                  } catch (err) {
-                    console.error("[WS] socket close failed:", err);
-                  }
-                }
-                wsRooms.delete(sessionId);
-              }
-            }, 1000);
-
-            return;
+          // ✅ Mark session as ended in Redis
+          const session = await redisRepo.getJson(`collab:session:${sessionId}`);
+          if (session) {
+            session.status = "ended";
+            await redisRepo.setJson(`collab:session:${sessionId}`, session);
           }
 
+          // ✅ Broadcast to all participants INCLUDING the sender
+          console.log(`[WS] Broadcasting session:end to all clients`);
+          broadcast(sessionId, payload, ws); // Pass 'ws' to exclude sender from broadcast, then send separately
+          ws.send(JSON.stringify(payload)); // Send to the initiating user
+          console.log(`[WS] Broadcast complete`);
+
+          // 🕐 Give 1s delay so all clients receive before closing
+          setTimeout(() => {
+            const room = wsRooms.get(sessionId);
+            if (room) {
+              for (const sock of room) {
+                try {
+                  sock.close(1000, "Session ended");
+                } catch (err) {
+                  console.error("[WS] socket close failed:", err);
+                }
+              }
+              wsRooms.delete(sessionId);
+            }
+          }, 1000);
+
+          return;
+        }
 
         ws.send(JSON.stringify({ type: "error", error: "unknown message type" }));
       } catch (e) {
@@ -570,21 +611,32 @@ export function initGateway(wss) {
 
 export function broadcast(sessionId, payload, exclude) {
   const room = wsRooms.get(sessionId);
-  if (!room) return;
+  if (!room) {
+    console.log(`[WS] No room found for session ${sessionId}`);
+    return;
+  }
 
-  console.log(`[WS] Broadcasting ${payload.type} to ${room.size} clients in ${sessionId}`);
+  console.log(`[WS] Broadcasting ${payload.type} to ${room.size} clients in ${sessionId} (excluding: ${exclude ? 'sender' : 'none'})`);
+  let sentCount = 0;
 
   for (const sock of room) {
     try {
       if (sock.readyState === sock.OPEN) {
-        if (exclude && sock === exclude) continue;
+        if (exclude && sock === exclude) {
+          console.log(`[WS] Skipping excluded socket (sender)`);
+          continue;
+        }
         sock.send(JSON.stringify(payload));
+        sentCount++;
+        console.log(`[WS] Sent ${payload.type} to client (${sentCount}/${room.size})`);
       } else {
-        console.warn("[WS] Skipping closed socket");
+        console.warn("[WS] Skipping closed socket (readyState=" + sock.readyState + ")");
       }
     } catch (err) {
       console.error("[WS] Broadcast failed:", err);
     }
   }
+  
+  console.log(`[WS] Broadcast complete - sent to ${sentCount} clients`);
 }
 

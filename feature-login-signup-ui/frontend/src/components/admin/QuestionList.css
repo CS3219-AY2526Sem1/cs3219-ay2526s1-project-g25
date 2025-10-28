@@ -52,28 +52,32 @@
 }
 
 .questions-grid {
-  display: grid;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .question-card {
   border: 2px solid #e0e0e0;
   border-radius: 12px;
-  padding: 20px;
+  padding: 24px;
   transition: all 0.3s;
   background: #fafbfc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .question-card:hover {
   border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+  transform: translateY(-2px);
 }
 
 .question-header {
   display: flex;
   justify-content: space-between;
   align-items: start;
-  margin-bottom: 12px;
 }
 
 .question-header h3 {
@@ -121,7 +125,6 @@
 }
 
 .question-description {
-  margin: 16px 0;
   color: #666;
   line-height: 1.6;
 }
@@ -130,10 +133,83 @@
   margin: 0;
 }
 
+/* Markdown styling */
+.question-description h1,
+.question-description h2,
+.question-description h3 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: 600;
+}
+
+.question-description h1 {
+  font-size: 24px;
+}
+
+.question-description h2 {
+  font-size: 20px;
+}
+
+.question-description h3 {
+  font-size: 18px;
+}
+
+.question-description strong {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.question-description code {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #e74c3c;
+}
+
+.question-description pre {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  border-left: 3px solid #667eea;
+  margin: 12px 0;
+}
+
+.question-description pre code {
+  background: transparent;
+  padding: 0;
+  color: #333;
+}
+
+.question-description ul,
+.question-description ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.question-description li {
+  margin: 4px 0;
+}
+
+.question-image {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+}
+
 .question-description img {
   max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
   border-radius: 8px;
-  margin: 12px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  object-fit: contain;
+  background: #f8f9fa;
+  padding: 8px;
 }
 
 .expand-button {
@@ -156,9 +232,9 @@
 .question-actions {
   display: flex;
   gap: 10px;
-  margin-top: 16px;
-  padding-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid #e0e0e0;
+  margin-top: 8px;
 }
 
 .edit-button,
@@ -212,5 +288,9 @@
 
   .question-actions {
     flex-direction: column;
+  }
+  
+  .questions-grid {
+    grid-template-columns: 1fr;
   }
 }
