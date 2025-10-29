@@ -51,23 +51,23 @@ jobs:
           gcloud run deploy question-service \
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/question-service:latest \
             --region asia-southeast1 \
-            --env-file=question-service/question-service/.env
+            --env-vars-file=question-service/question-service/.env
             --allow-unauthenticated
 
           gcloud run deploy matching-service \
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/matching-service:latest \
             --region asia-southeast1 \
-            --env-file=matching-service/matching-service/.env
+            --env-vars-file=matching-service/matching-service/.env
             --allow-unauthenticated
 
           gcloud run deploy user-service \
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/user-service:latest \
             --region asia-southeast1 \
-            --env-file=user-service/user-service/.env
+            --env-vars-file=user-service/user-service/.env
             --allow-unauthenticated
 
           gcloud run deploy collaboration-service \
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/collaboration-service:latest \
             --region asia-southeast1 \
-            --env-file=collaboration-service/collaboration-service/.env
+            --env-vars-file=collaboration-service/collaboration-service/.env
             --allow-unauthenticated
