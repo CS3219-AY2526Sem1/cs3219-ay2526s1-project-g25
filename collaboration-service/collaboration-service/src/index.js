@@ -38,6 +38,8 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 // Connect to Redis before starting server
 connectRedis().then(() => {
   server.listen(port, () => {
