@@ -52,22 +52,26 @@ jobs:
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/question-service:latest \
             --region asia-southeast1 \
             --env-vars-file=question-service/question-service/.env
+            --set-env-vars PORT=8080
             --allow-unauthenticated
 
           gcloud run deploy matching-service \
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/matching-service:latest \
             --region asia-southeast1 \
             --env-vars-file=matching-service/matching-service/.env
+            --set-env-vars PORT=8080
             --allow-unauthenticated
 
           gcloud run deploy user-service \
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/user-service:latest \
             --region asia-southeast1 \
             --env-vars-file=user-service/user-service/.env
+            --set-env-vars PORT=8080
             --allow-unauthenticated
 
           gcloud run deploy collaboration-service \
             --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/collaboration-service:latest \
             --region asia-southeast1 \
             --env-vars-file=collaboration-service/collaboration-service/.env
+            --set-env-vars PORT=8080
             --allow-unauthenticated
