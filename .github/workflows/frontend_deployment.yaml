@@ -59,3 +59,15 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_MATCHING_UI_PROJECT_ID }}
         run: |
           vercel --prod --cwd ./feature-matching-ui/frontend --token ${{ secrets.VERCEL_TOKEN }} --yes
+
+      - name: Sync Vercel Collaboration UI envs.
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_COLLABORATION_UI_PROJECT_ID }}
+        run: |
+          ./sync_vercel_env.py feature-collaboration-ui/frontend/peerprep-collab/.env production
+  
+      - name: Deploy Collaboration UI to Vercel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_COLLABORATION_UI_PROJECT_ID }}
+        run: |
+          vercel --prod --cwd ./feature-collaboration-ui/frontend/peerprep-collab --token ${{ secrets.VERCEL_TOKEN }} --yes
