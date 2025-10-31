@@ -22,6 +22,10 @@ jobs:
         run: |
           npm install -g vercel
 
+      - name: Make env file sync script executable.
+        run: |
+          chmod +x ./sync_vercel_env.py
+
       - name: Sync Vercel Login UI envs.
         run: |
           ./sync_vercel_env.py frontend/frontend/.env production
