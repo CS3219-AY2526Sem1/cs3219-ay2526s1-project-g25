@@ -161,7 +161,7 @@ export default function CollabPage() {
 
   if (loading) return <div className="text-white p-10">Loading session...</div>;
   if (!question) return <div className="text-red-400 p-10">No question found.</div>;
-  if (!userId) return <div className="text-red-400 p-10">User ID not found. Please ensure you're accessing this page from the matching interface.</div>;
+  if (!userId) return <div className="text-red-400 p-10">User ID not found. Please ensure you&apos;re accessing this page from the matching interface.</div>;
 
   /* ----------  Layout  ---------- */
   return (
