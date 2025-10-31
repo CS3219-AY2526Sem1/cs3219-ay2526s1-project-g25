@@ -1,5 +1,8 @@
 name: Deploy Login UI to Vercel
 
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
 on:
   push:
     branches:
