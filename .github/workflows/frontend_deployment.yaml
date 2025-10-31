@@ -21,8 +21,12 @@ jobs:
       - name: Install Vercel CLI
         run: |
           npm install -g vercel
+
+      - name: Sync Vercel Login UI envs.
+        run: |
+          ./sync_vercel_env.py frontend/frontend/.env production
   
-      - name: Deploy to Vercel
+      - name: Deploy Login UI to Vercel
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_LOGIN_UI_PROJECT_ID }}
         run: |
