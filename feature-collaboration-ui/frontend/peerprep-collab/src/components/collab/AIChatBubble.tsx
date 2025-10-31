@@ -4,6 +4,7 @@ import type React from "react"
 import { motion } from "framer-motion"
 import { Sparkles, Lightbulb, Bug, Code } from "lucide-react"
 import ReactMarkdown from "react-markdown"
+import type { HTMLAttributes } from "react";
 
 interface AIChatBubbleProps {
   children: React.ReactNode
@@ -73,11 +74,19 @@ export default function AIChatBubble({ children, type = "ai" }: AIChatBubbleProp
                 p: ({node, ...props}) => <p className="mb-3 leading-relaxed break-words" {...props} />,
                 strong: ({node, ...props}) => <strong className="font-bold text-purple-300" {...props} />,
                 em: ({node, ...props}) => <em className="italic" {...props} />,
-                code: ({node, inline, ...props}) => 
+                code: (
+                  { node, inline = false, ...props }:
+                  { node?: unknown; inline?: boolean } & HTMLAttributes<HTMLElement>
+                ) =>
                   inline ? (
-                    <code className="bg-slate-800 px-1.5 py-0.5 rounded text-purple-300 text-xs font-mono inline-block" {...props} />
+                    <code
+                      className="bg-slate-800 px-1.5 py-0.5 rounded text-purple-300 text-xs font-mono inline-block"
+                      {...props}
+                    />
                   ) : (
-                    <code className="block bg-slate-800 p-3 rounded-lg text-slate-200 text-xs font-mono my-3 w-fit max-w-full overflow-x-auto whitespace-pre-wrap break-words" {...props} />
+                    <pre className="bg-slate-800 p-3 rounded-lg my-3 overflow-x-auto max-w-full whitespace-pre-wrap break-words">
+                      <code className="text-slate-200 text-xs font-mono" {...props} />
+                    </pre>
                   ),
                 pre: ({node, ...props}) => (
                   <pre className="bg-slate-800 p-3 rounded-lg text-slate-200 text-xs font-mono my-3 overflow-x-auto max-w-full whitespace-pre-wrap break-words" {...props} />

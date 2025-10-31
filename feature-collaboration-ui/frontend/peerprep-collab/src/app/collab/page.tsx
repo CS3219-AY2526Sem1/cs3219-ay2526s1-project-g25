@@ -4,7 +4,7 @@ import ChatPane from "@/components/collab/ChatPane";
 import CodePane from "@/components/collab/CodePane";
 import ExecutionPane from "@/components/collab/ExecutionPane";
 import QuestionPane from "@/components/collab/QuestionPane";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getAccessToken, parseJwt, isAuthenticated } from "@/lib/auth";
@@ -14,7 +14,7 @@ import {
   PanelResizeHandle,
 } from "react-resizable-panels";
 
-export default function CollabPage() {
+function CollabPage() {
   const params = useSearchParams();
   const router = useRouter();
   const sessionId = params.get("sessionId");
@@ -162,6 +162,7 @@ export default function CollabPage() {
   if (loading) return <div className="text-white p-10">Loading session...</div>;
   if (!question) return <div className="text-red-400 p-10">No question found.</div>;
   if (!userId) return <div className="text-red-400 p-10">User ID not found. Please ensure you&apos;re accessing this page from the matching interface.</div>;
+  if (!sessionId) return <div className="text-red-400 p-10">Session ID not found in URL. Please open this page from the matching interface.</div>;
 
   /* ----------  Layout  ---------- */
   return (
@@ -178,8 +179,8 @@ export default function CollabPage() {
               <QuestionPane
                 question={question}
                 sendMsg={sendMsg}
-                sessionId={sessionId}
-                userId={userId}
+                sessionId={sessionId!}
+                userId={userId!}
               />
             </div>
           </Panel>
@@ -215,4 +216,14 @@ export default function CollabPage() {
       </motion.div>
     </div>
   );
+}
+
+export default function CollabPageWrapper() {
+    return (
+        <div>
+            <Suspense fallback={<div>Loading...</div>}>
+                <CollabPage/>
+            </Suspense>
+        </div>
+    )
 }
