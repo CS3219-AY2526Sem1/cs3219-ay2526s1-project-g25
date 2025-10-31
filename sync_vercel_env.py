@@ -16,8 +16,7 @@ def main():
     env_file = sys.argv[1]
     target_env = sys.argv[2]
 
-    # vercel_token = os.environ.get("VERCEL_TOKEN")
-    vercel_token = "S24aMfBSdGkAopqwv5vQJBWO"
+    vercel_token = os.environ.get("VERCEL_TOKEN")
 
     if not vercel_token:
         print("Error: VERCEL_TOKEN environment variable not set.")
