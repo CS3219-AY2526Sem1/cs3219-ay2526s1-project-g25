@@ -37,6 +37,8 @@ jobs:
           chmod +x ./sync_vercel_env.py
 
       - name: Sync Vercel Login UI envs.
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_LOGIN_UI_PROJECT_ID }}
         run: |
           ./sync_vercel_env.py frontend/frontend/.env production
   
