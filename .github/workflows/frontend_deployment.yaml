@@ -40,10 +40,10 @@ jobs:
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_LOGIN_UI_PROJECT_ID }}
         run: |
-          ./sync_vercel_env.py frontend/frontend/.env production
+          ./sync_vercel_env.py feature-login-signup-ui/frontend/.env production
   
       - name: Deploy Login UI to Vercel
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_LOGIN_UI_PROJECT_ID }}
         run: |
-          vercel --prod --cwd ./frontend/frontend --token ${{ secrets.VERCEL_TOKEN }} --yes
+          vercel --prod --cwd ./feature-login-signup-ui/frontend --token ${{ secrets.VERCEL_TOKEN }} --yes
