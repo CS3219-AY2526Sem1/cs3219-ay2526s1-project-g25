@@ -21,7 +21,7 @@ jobs:
   
       - name: Decrypt .env files
         run: |
-          for f in */*/.env.gpg; do
+          find . -type f -name ".env.gpg" | while read -r f; do
             [ -f "$f" ] || continue
             out="${f%.gpg}"   # remove .gpg extension
             echo "Decrypting $f → $out"
