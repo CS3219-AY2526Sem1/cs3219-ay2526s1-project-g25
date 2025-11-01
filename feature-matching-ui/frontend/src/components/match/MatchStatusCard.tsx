@@ -1,52 +1,21 @@
 "use client"
-
-import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { Clock, XCircle, Users, Sparkles, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import ReactMarkdown from "react-markdown"
 
 export default function MatchStatusCard({
-  phase: initialPhase,
+  phase,
   matchData,
   onCancel,
+  timeLeft,
 }: {
   phase: string
   matchData: any
   onCancel: () => void
+  timeLeft: number | null
 }) {
   const router = useRouter()
-  const [phase, setPhase] = useState(initialPhase)
-  const [timeLeft, setTimeLeft] = useState(120) // 2 min timer
-  const startTimeRef = useRef<number | null>(null)
-  const relaxedRef = useRef(false)
-
-  useEffect(() => {
-    if (phase !== "searching") return
-    if (!startTimeRef.current) startTimeRef.current = Date.now()
-
-    const tick = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current!) / 1000)
-      const remaining = Math.max(120 - elapsed, 0)
-      setTimeLeft(remaining)
-
-      // After 60 seconds: relax constraints (only once)
-      if (elapsed >= 60 && elapsed < 120 && !relaxedRef.current) {
-        console.log("Relaxing difficulty constraints… (1 min reached)")
-        relaxedRef.current = true
-        // Example: trigger API to relax difficulty
-        // fetch("/api/match/relax", { method: "POST" })
-      }
-
-      // After 120 seconds: timeout
-      if (elapsed >= 120) {
-        clearInterval(tick)
-        setPhase("timeout")
-      }
-    }, 1000)
-
-    return () => clearInterval(tick)
-  }, [phase])
 
   const handleStartSession = () => {
     if (!matchData?.sessionId) {
@@ -171,7 +140,7 @@ export default function MatchStatusCard({
     )
   }
 
-  // MATCHED PHASE
+  // ✅ MATCHED PHASE (no check icon)
   if (phase === "matched") {
     return (
       <motion.div
@@ -181,6 +150,8 @@ export default function MatchStatusCard({
         transition={{ type: "spring", duration: 0.7 }}
       >
         <div className="bg-gradient-to-br from-green-900/40 to-emerald-900/40 backdrop-blur-xl border border-green-500/40 rounded-3xl p-10 shadow-2xl shadow-green-900/40">
+          
+          {/* Celebration Glow */}
           <div className="flex justify-center mb-6">
             <motion.div
               className="relative"
@@ -203,6 +174,7 @@ export default function MatchStatusCard({
                 />
               </div>
 
+              {/* Sparkles */}
               {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={i}
@@ -227,6 +199,7 @@ export default function MatchStatusCard({
             </motion.div>
           </div>
 
+          {/* Message */}
           <div className="text-center mb-8">
             <motion.h3
               className="text-4xl font-bold text-white mb-2"
@@ -245,6 +218,39 @@ export default function MatchStatusCard({
             </motion.p>
           </div>
 
+          {/* Match Details */}
+          <motion.div
+            className="bg-slate-900/70 border border-slate-700/50 rounded-2xl p-6 mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <h4 className="text-purple-300 font-semibold mb-4 text-lg flex items-center gap-2">
+              <Users className="w-5 h-5" /> Match Details
+            </h4>
+
+            <div className="space-y-3">
+              {matchData?.matchId && (
+                <div className="flex justify-between items-center border-b border-slate-700/50 py-2">
+                  <span className="text-slate-400">Match ID</span>
+                  <span className="text-white font-mono font-semibold">
+                    {matchData.matchId}
+                  </span>
+                </div>
+              )}
+
+              {matchData?.difficulty && (
+                <div className="flex justify-between items-center border-b border-slate-700/50 py-2">
+                  <span className="text-slate-400">Difficulty</span>
+                  <span className="text-purple-400 font-semibold uppercase">
+                    {matchData.difficulty}
+                  </span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Question Section */}
           {matchData?.question && (
             <motion.div
               className="bg-slate-800/70 border border-slate-700/50 rounded-2xl p-6 mb-8"
@@ -260,14 +266,13 @@ export default function MatchStatusCard({
               </p>
               {matchData.question.description && (
                 <div className="text-slate-300 mt-2 prose prose-invert prose-sm max-w-none">
-                  <ReactMarkdown>
-                    {matchData.question.description}
-                  </ReactMarkdown>
+                  <ReactMarkdown>{matchData.question.description}</ReactMarkdown>
                 </div>
               )}
             </motion.div>
           )}
 
+          {/* CTA */}
           <motion.div
             className="flex justify-center"
             initial={{ opacity: 0 }}
@@ -287,7 +292,7 @@ export default function MatchStatusCard({
     )
   }
 
-  // TIMEOUT PHASE
+  // 🟠 TIMEOUT
   if (phase === "timeout") {
     return (
       <div className="bg-slate-900/90 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-8 text-center">
@@ -308,7 +313,7 @@ export default function MatchStatusCard({
     )
   }
 
-  // ERROR PHASE
+  // 🔴 ERROR
   if (phase === "error") {
     return (
       <div className="bg-slate-900/90 backdrop-blur-xl border border-red-500/30 rounded-2xl p-8 text-center">
