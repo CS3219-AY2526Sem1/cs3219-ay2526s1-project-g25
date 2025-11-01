@@ -130,7 +130,9 @@ function CollabPage() {
         const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || 'http://localhost:3004';
         console.log('[CollabPage] Fetching session with baseUrl:', baseUrl);
         const res = await fetch(`${baseUrl}/sessions/${sessionId}`);
+	console.log(res);
         const data = await res.json();
+	console.log(data);
 
         if (!data.session) throw new Error("No session found");
         const qid = data.session.questionId;
