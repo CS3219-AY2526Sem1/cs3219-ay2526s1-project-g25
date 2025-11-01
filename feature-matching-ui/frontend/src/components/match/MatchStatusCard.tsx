@@ -171,7 +171,7 @@ export default function MatchStatusCard({
     )
   }
 
-  // ✅ MATCHED PHASE
+  // MATCHED PHASE
   if (phase === "matched") {
     return (
       <motion.div
@@ -287,7 +287,7 @@ export default function MatchStatusCard({
     )
   }
 
-  // 🟠 TIMEOUT PHASE
+  // TIMEOUT PHASE
   if (phase === "timeout") {
     return (
       <div className="bg-slate-900/90 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-8 text-center">
@@ -308,7 +308,7 @@ export default function MatchStatusCard({
     )
   }
 
-  // 🔴 ERROR PHASE
+  // ERROR PHASE
   if (phase === "error") {
     return (
       <div className="bg-slate-900/90 backdrop-blur-xl border border-red-500/30 rounded-2xl p-8 text-center">
