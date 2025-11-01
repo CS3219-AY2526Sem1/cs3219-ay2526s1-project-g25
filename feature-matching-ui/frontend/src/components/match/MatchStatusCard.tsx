@@ -1,55 +1,85 @@
-"use client"
-import { motion } from "framer-motion"
-import { Clock, XCircle, Users, Sparkles, ArrowRight } from "lucide-react"
-import { useRouter } from "next/navigation"
-import ReactMarkdown from "react-markdown"
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { Clock, XCircle, Users, Sparkles, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 
 export default function MatchStatusCard({
   phase,
   matchData,
   onCancel,
-  timeLeft,
+  timeLeft: externalTimeLeft,
 }: {
-  phase: string
-  matchData: any
-  onCancel: () => void
-  timeLeft: number | null
+  phase: string;
+  matchData: any;
+  onCancel: () => void;
+  timeLeft: number | null;
 }) {
-  const router = useRouter()
+  const router = useRouter();
+
+  // --- Stable internal timer fix ---
+  const [timeLeft, setTimeLeft] = useState<number | null>(externalTimeLeft);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (phase !== "searching") return;
+
+    if (!startTimeRef.current) {
+      startTimeRef.current = Date.now();
+    }
+
+    const totalDuration = 120_000; // 2 minutes in ms
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTimeRef.current!;
+      const remaining = Math.max(totalDuration - elapsed, 0);
+      setTimeLeft(Math.floor(remaining / 1000));
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  useEffect(() => {
+    if (externalTimeLeft !== null) setTimeLeft(externalTimeLeft);
+  }, [externalTimeLeft]);
 
   const handleStartSession = () => {
     if (!matchData?.sessionId) {
-      console.error("[MatchStatusCard] Missing sessionId:", matchData)
-      alert("No collaboration session found. Please try again.")
-      return
+      console.error("[MatchStatusCard] Missing sessionId:", matchData);
+      alert("No collaboration session found. Please try again.");
+      return;
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:4000"
+      process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:4000";
 
-    const token = localStorage.getItem("accessToken")
-    let userIdFromToken: string | null = null
+    const token = localStorage.getItem("accessToken");
+    let userIdFromToken: string | null = null;
     try {
       if (token) {
-        const payload = JSON.parse(atob(token.split(".")[1]))
-        userIdFromToken = String(payload.userId)
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        userIdFromToken = String(payload.userId);
       }
     } catch (err) {
-      console.warn("[MatchStatusCard] Failed to parse token:", err)
+      console.warn("[MatchStatusCard] Failed to parse token:", err);
     }
 
-    const finalUserId = userIdFromToken || matchData.userId || "guest"
-    const authToken = localStorage.getItem("accessToken")
+    const finalUserId = userIdFromToken || matchData.userId || "guest";
+    const authToken = localStorage.getItem("accessToken");
 
     const collabUrl = `${baseUrl.replace(/\/$/, "")}/collab?sessionId=${
       matchData.sessionId
     }&userId=${finalUserId}${
       authToken ? `&token=${encodeURIComponent(authToken)}` : ""
-    }`
+    }`;
 
-    console.log(`[MatchStatusCard] Redirecting to: ${collabUrl}`)
-    window.location.href = collabUrl
-  }
+    console.log(`[MatchStatusCard] Redirecting to: ${collabUrl}`);
+    window.location.href = collabUrl;
+  };
 
   // 🕓 SEARCHING PHASE
   if (phase === "searching") {
@@ -137,10 +167,10 @@ export default function MatchStatusCard({
           </div>
         </div>
       </motion.div>
-    )
+    );
   }
 
-  // ✅ MATCHED PHASE (no check icon)
+  // ✅ MATCHED PHASE
   if (phase === "matched") {
     return (
       <motion.div
@@ -150,8 +180,6 @@ export default function MatchStatusCard({
         transition={{ type: "spring", duration: 0.7 }}
       >
         <div className="bg-gradient-to-br from-green-900/40 to-emerald-900/40 backdrop-blur-xl border border-green-500/40 rounded-3xl p-10 shadow-2xl shadow-green-900/40">
-          
-          {/* Celebration Glow */}
           <div className="flex justify-center mb-6">
             <motion.div
               className="relative"
@@ -174,7 +202,6 @@ export default function MatchStatusCard({
                 />
               </div>
 
-              {/* Sparkles */}
               {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={i}
@@ -199,7 +226,6 @@ export default function MatchStatusCard({
             </motion.div>
           </div>
 
-          {/* Message */}
           <div className="text-center mb-8">
             <motion.h3
               className="text-4xl font-bold text-white mb-2"
@@ -218,7 +244,6 @@ export default function MatchStatusCard({
             </motion.p>
           </div>
 
-          {/* Match Details */}
           <motion.div
             className="bg-slate-900/70 border border-slate-700/50 rounded-2xl p-6 mb-6"
             initial={{ opacity: 0, y: 20 }}
@@ -250,7 +275,6 @@ export default function MatchStatusCard({
             </div>
           </motion.div>
 
-          {/* Question Section */}
           {matchData?.question && (
             <motion.div
               className="bg-slate-800/70 border border-slate-700/50 rounded-2xl p-6 mb-8"
@@ -266,13 +290,14 @@ export default function MatchStatusCard({
               </p>
               {matchData.question.description && (
                 <div className="text-slate-300 mt-2 prose prose-invert prose-sm max-w-none">
-                  <ReactMarkdown>{matchData.question.description}</ReactMarkdown>
+                  <ReactMarkdown>
+                    {matchData.question.description}
+                  </ReactMarkdown>
                 </div>
               )}
             </motion.div>
           )}
 
-          {/* CTA */}
           <motion.div
             className="flex justify-center"
             initial={{ opacity: 0 }}
@@ -289,7 +314,7 @@ export default function MatchStatusCard({
           </motion.div>
         </div>
       </motion.div>
-    )
+    );
   }
 
   // 🟠 TIMEOUT
@@ -310,7 +335,7 @@ export default function MatchStatusCard({
           Try Again
         </button>
       </div>
-    )
+    );
   }
 
   // 🔴 ERROR
@@ -331,8 +356,8 @@ export default function MatchStatusCard({
           Retry
         </button>
       </div>
-    )
+    );
   }
 
-  return null
+  return null;
 }
