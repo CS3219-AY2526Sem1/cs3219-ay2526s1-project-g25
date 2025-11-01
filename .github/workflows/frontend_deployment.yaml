@@ -1,0 +1,73 @@
+name: Deploy Frontend to Vercel
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+on:
+  push:
+    branches:
+      - main
+      - github-actions
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+  
+      - name: Decrypt .env files
+        run: |
+          find . -type f -name ".env.gpg" | while read -r f; do
+            [ -f "$f" ] || continue
+            out="${f%.gpg}"   # remove .gpg extension
+            echo "Decrypting $f → $out"
+            gpg --batch --yes --passphrase "${{ secrets.GPG_PASSPHRASE }}" -o "$out" -d "$f"
+          done
+
+      - name: Install Vercel CLI
+        run: |
+          npm install -g vercel
+
+      - name: Make env file sync script executable.
+        run: |
+          chmod +x ./sync_vercel_env.py
+
+      - name: Sync Vercel Login UI envs.
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_LOGIN_UI_PROJECT_ID }}
+        run: |
+          ./sync_vercel_env.py feature-login-signup-ui/frontend/.env production
+  
+      - name: Deploy Login UI to Vercel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_LOGIN_UI_PROJECT_ID }}
+        run: |
+          vercel --prod --cwd ./feature-login-signup-ui/frontend --token ${{ secrets.VERCEL_TOKEN }} --yes
+
+      - name: Sync Vercel Matching UI envs.
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_MATCHING_UI_PROJECT_ID }}
+        run: |
+          ./sync_vercel_env.py feature-matching-ui/frontend/.env production
+  
+      - name: Deploy Matching UI to Vercel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_MATCHING_UI_PROJECT_ID }}
+        run: |
+          vercel --prod --cwd ./feature-matching-ui/frontend --token ${{ secrets.VERCEL_TOKEN }} --yes
+
+      - name: Sync Vercel Collaboration UI envs.
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_COLLABORATION_UI_PROJECT_ID }}
+        run: |
+          ./sync_vercel_env.py feature-collaboration-ui/frontend/peerprep-collab/.env production
+  
+      - name: Deploy Collaboration UI to Vercel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_COLLABORATION_UI_PROJECT_ID }}
+        run: |
+          vercel --prod --cwd ./feature-collaboration-ui/frontend/peerprep-collab --token ${{ secrets.VERCEL_TOKEN }} --yes

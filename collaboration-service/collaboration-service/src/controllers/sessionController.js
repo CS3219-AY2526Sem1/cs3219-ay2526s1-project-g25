@@ -32,7 +32,7 @@ export const createSession = async (req, res) => {
     await redisRepo.sAdd(`collab:session:${s.id}:participants`, s.userA, s.userB);
 
     // After creating the session, call User Service to increment difficulty
-    const markSolvedUrl = `${process.env.NEXT_PUBLIC_USER_SERVICE_URL}/difficulty/solve`;
+    const markSolvedUrl = `${process.env.USER_SERVICE_BASE_URL}/difficulty/solve`;
 
     try {
       //Increment for both users in parallel

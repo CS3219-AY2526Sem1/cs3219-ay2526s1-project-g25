@@ -11,6 +11,9 @@ const app = express();
 
 // --- CORS setup ---
 const allowedOrigins = [
+  "https://peerprep-login-signup.vercel.app",  // Login UI
+  "https://peerprep-matching.vercel.app",  // Matching UI
+  "https://peerprep-collab.vercel.app",  // Collaboration UI
   "http://localhost:3000",  // Login UI
   "http://localhost:3002",  // Matching UI
   "http://localhost:4000",  // Collaboration UI

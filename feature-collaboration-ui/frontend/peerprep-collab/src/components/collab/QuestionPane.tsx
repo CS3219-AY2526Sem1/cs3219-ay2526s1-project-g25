@@ -7,7 +7,29 @@ import { useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
-export default function QuestionPane({ question, sendMsg, sessionId, userId }) {
+type TestCase = { input: any; output?: any; expected?: any };
+type Question = {
+  title?: string;
+  description?: string;
+  difficulty?: string;
+  topic?: string;
+  image_url?: string;
+  test_cases?: any;
+};
+type QuestionPaneProps = {
+  question: Question | null | undefined;
+  sendMsg: (msg: any) => void;
+  sessionId: string;
+  userId: string;
+};
+
+export default function QuestionPane({
+  question,
+  sendMsg,
+  sessionId,
+  userId,
+}: QuestionPaneProps) {
+
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -89,7 +111,7 @@ export default function QuestionPane({ question, sendMsg, sessionId, userId }) {
   };
 
   const isMatrix = (val: any) =>
-    Array.isArray(val) && Aarray.isArray(val[0]) && !Array.isArray(val[0][0]);
+    Array.isArray(val) && Array.isArray(val[0]) && !Array.isArray(val[0][0]);
 
   const renderValue = (val: any) => {
     if (Array.isArray(val)) {

@@ -44,8 +44,8 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 connectRedis().then(() => {
   server.listen(port, () => {
     console.log(`collaboration-service listening on http://localhost:${port}`);
-    console.log(`Custom WS : ws://localhost:${port}/ws?sessionId=...&userId=...`);
-    console.log(`Yjs WS    : ws://localhost:${port}/ws-yjs?sessionId=...&userId=...`);
+    console.log(`Custom WS : wss://localhost:${port}/ws?sessionId=...&userId=...`);
+    console.log(`Yjs WS    : wss://localhost:${port}/ws-yjs?sessionId=...&userId=...`);
   });
 }).catch(err => {
   console.error('Failed to connect to Redis:', err);
