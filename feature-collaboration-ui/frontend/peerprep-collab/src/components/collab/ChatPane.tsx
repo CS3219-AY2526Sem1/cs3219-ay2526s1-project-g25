@@ -61,7 +61,8 @@ export default function ChatPane() {
     
     if (msg.type === "session:end") {
         alert("Your partner has ended the session. Returning to dashboard...");
-        window.location.href = "http://localhost:3000/dashboard";
+        const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
+        window.location.href = dashboardUrl;
     }
   });
 
