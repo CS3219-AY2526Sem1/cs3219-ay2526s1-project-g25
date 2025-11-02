@@ -7,6 +7,7 @@ import authRoutes from '../routes/auth.js'
 import userRoutes from '../routes/user.js'
 import tokenRoutes from '../routes/token.js'
 import difficultyRoutes from '../routes/difficulty.js'
+import tempTokenRoutes from '../routes/tempToken.js'
 
 const PORT = process.env.PORT || 3001
 
@@ -21,6 +22,7 @@ app.use('/auth', authRoutes)
 app.use('/users', userRoutes)
 app.use('/api/token', tokenRoutes)
 app.use('/difficulty', difficultyRoutes)
+app.use("/auth", tempTokenRoutes);
 
 app.get('/', (req, res) => res.json({ service: 'user-service', ok: true }))
 

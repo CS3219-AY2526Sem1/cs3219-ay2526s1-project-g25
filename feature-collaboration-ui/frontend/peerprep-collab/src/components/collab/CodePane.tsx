@@ -107,7 +107,6 @@ export default function CodePane({ question }: { question: any }) {
 
 
     useEffect(() => {
-        setCurrentLanguage(language);
 
         const { send, executeTestCases } = connectCollabSocket(sessionId, userId, (msg) => {
             console.log("[CodePane] Received message:", msg.type, msg);
@@ -201,7 +200,12 @@ export default function CodePane({ question }: { question: any }) {
 
         setSendMsg(() => send);
         setExecuteTestCases(() => executeTestCases);
-    }, [language, sessionId, userId, setCurrentLanguage, setIsExecutingTests, setTestExecutionResults, setOutput]);
+        
+          return () => {
+        console.log("[CodePane] Cleaning up collab socket...");
+        };
+
+    }, [sessionId, userId]);
 
     useEffect(() => {
         if (!sessionId || !userId) return;

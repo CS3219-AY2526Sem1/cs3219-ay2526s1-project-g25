@@ -15,20 +15,73 @@ export default function MatchPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-    const token = getAccessToken();
-    console.log("[MatchPage] Token found:", token ? token.substring(0, 20) + "..." : "None");
+useEffect(() => {
+  setIsClient(true);
 
-    if (token) {
-      const payload = parseJwt<{ userId: number }>(token);
-      console.log("[MatchPage] Token payload:", payload);
-      setUserId(payload?.userId ? String(payload.userId) : null);
-    } else {
-      console.log("[MatchPage] No token found, using demo user");
-      setUserId("123");
+  const urlParams = new URLSearchParams(window.location.search);
+  const tempKey = urlParams.get("temp");
+  const userServiceUrl =
+    process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
+
+  const handleAuth = async () => {
+    try {
+      if (tempKey) {
+        console.log("[MatchPage] Found temp key in URL, redeeming...");
+        const res = await fetch(`${userServiceUrl}/auth/resolve-temp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tempKey }),
+        });
+
+        if (!res.ok) {
+          console.error("[MatchPage] Failed to redeem temp key");
+          alert("Session expired or invalid. Please rejoin from Dashboard.");
+          return;
+        }
+
+        const { accessToken } = await res.json();
+        if (!accessToken) {
+          console.error("[MatchPage] No accessToken in response");
+          alert("Unable to authenticate session.");
+          return;
+        }
+
+        // ✅ Store the new access token
+        localStorage.setItem("accessToken", accessToken);
+
+        const payload = parseJwt<{ userId: number }>(accessToken);
+        if (payload?.userId) {
+          setUserId(String(payload.userId));
+          console.log("[MatchPage] User authenticated:", payload);
+        } else {
+          console.warn("[MatchPage] Invalid payload, using fallback user");
+          setUserId("123");
+        }
+      } else {
+        // No temp key → use existing token
+        const token = getAccessToken();
+        console.log(
+          "[MatchPage] Token found:",
+          token ? token.substring(0, 20) + "..." : "None"
+        );
+
+        if (token) {
+          const payload = parseJwt<{ userId: number }>(token);
+          setUserId(payload?.userId ? String(payload.userId) : null);
+        } else {
+          console.log("[MatchPage] No token found, using demo user");
+          setUserId("123");
+        }
+      }
+    } catch (err) {
+      console.error("[MatchPage] Auth flow error:", err);
+      alert("Error authenticating. Please rejoin from Dashboard.");
     }
-  }, []);
+  };
+
+  handleAuth();
+}, []);
+
 
   const { phase, matchData, join, leave, timeLeft } = useMatchFlow(userId);
   const [topics, setTopics] = useState<string[]>([]);
