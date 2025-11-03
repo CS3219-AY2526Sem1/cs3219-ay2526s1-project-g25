@@ -12,20 +12,44 @@ function Dashboard() {
 
 
 
-  const handleStartMatching = () => {
+  const handleStartMatching = async () => {
   const token = authService.getAccessToken();
   if (!token) {
     toast.error("Please log in again");
     navigate("/auth");
     return;
   }
+  console.log("Access token:", token);
 
+  const userServiceUrl =
+    process.env.REACT_APP_USER_SERVICE_URL || "http://localhost:3001";
   const matchingUIUrl =
     process.env.REACT_APP_MATCHING_UI_URL || "http://localhost:3002";
 
-  // Redirect with token as query param
-  // eslint-disable-next-line no-restricted-globals
-  window.location.href = `${matchingUIUrl}/match?token=${token}`;
+  try {
+    // Request a short-lived temp key from User Service
+    const res = await fetch(`${userServiceUrl}/auth/temp-token`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      toast.error("Failed to create secure session key");
+      return;
+    }
+
+    const { tempKey } = await res.json();
+    if (!tempKey) {
+      toast.error("Invalid response from server");
+      return;
+    }
+
+    // Redirect to Matching UI with temp key only
+    window.location.href = `${matchingUIUrl}/match?temp=${tempKey}`;
+  } catch (err) {
+    console.error("[Dashboard] Error creating temp key:", err);
+    toast.error("Unable to start matching. Please try again.");
+  }
 };
 
   return (
@@ -91,7 +115,6 @@ function Dashboard() {
 }
 
 export default Dashboard;
-
 
 
 
