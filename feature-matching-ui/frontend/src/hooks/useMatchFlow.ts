@@ -22,11 +22,20 @@ export function useMatchFlow(userId: string | null) {
     console.log("[useMatchFlow] Joining match queue", { userId, topics, difficulty });
 
     try {
-      const { data } = await api.post("/match/join", {
-        userId,
-        topics,
-        difficulty: difficulty.toLowerCase(),
-      });
+     const token = localStorage.getItem("accessToken");
+      const { data } = await api.post(
+        "/match/join",
+        {
+          userId,
+          topics,
+          difficulty: difficulty.toLowerCase(),
+        },
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        }
+      );
       console.log("[useMatchFlow] join result:", data);
 
       // Helper function for polling the backend until match is ready with sessionId

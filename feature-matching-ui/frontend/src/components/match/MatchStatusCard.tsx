@@ -81,6 +81,59 @@ export default function MatchStatusCard({
     window.location.href = collabUrl;
   };
 
+//   const handleStartSession = async () => {
+//   if (!matchData?.sessionId) {
+//     console.error("[MatchStatusCard] Missing sessionId:", matchData);
+//     alert("No collaboration session found. Please try again.");
+//     return;
+//   }
+
+//   const baseUrl =
+//     process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:4000";
+//   const userServiceUrl =
+//     process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
+
+//   const token = localStorage.getItem("accessToken");
+//   if (!token) {
+//     alert("Please log in again — token not found.");
+//     return;
+//   }
+
+//   try {
+//     // STEP 1: Ask the User Service to create a temporary key
+//     const tempRes = await fetch(`${userServiceUrl}/auth/temp-token`, {
+//       method: "POST",
+//       headers: {
+//         Authorization: `Bearer ${token}`,
+//       },
+//     });
+
+//     if (!tempRes.ok) {
+//       console.error("[MatchStatusCard] Failed to create temp token");
+//       alert("Failed to create secure session key.");
+//       return;
+//     }
+
+//     const { tempKey } = await tempRes.json();
+//     if (!tempKey) {
+//       alert("No temp key returned from User Service");
+//       return;
+//     }
+
+//     // ✅ STEP 2: Redirect to Collaboration UI with only the temp key
+//     const collabUrl = `${baseUrl.replace(/\/$/, "")}/collab?sessionId=${
+//       matchData.sessionId
+//     }&temp=${tempKey}`;
+
+//     console.log(`[MatchStatusCard] Redirecting securely to: ${collabUrl}`);
+//     window.location.href = collabUrl;
+//   } catch (err) {
+//     console.error("[MatchStatusCard] Error during temp key creation:", err);
+//     alert("Error starting session. Please try again.");
+//   }
+// };
+
+
   // 🕓 SEARCHING PHASE
   if (phase === "searching") {
     return (
@@ -170,7 +223,7 @@ export default function MatchStatusCard({
     );
   }
 
-  // ✅ MATCHED PHASE
+  // MATCHED PHASE
   if (phase === "matched") {
     return (
       <motion.div
@@ -317,7 +370,7 @@ export default function MatchStatusCard({
     );
   }
 
-  // 🟠 TIMEOUT
+  // TIMEOUT
   if (phase === "timeout") {
     return (
       <div className="bg-slate-900/90 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-8 text-center">
@@ -338,7 +391,7 @@ export default function MatchStatusCard({
     );
   }
 
-  // 🔴 ERROR
+  // ERROR
   if (phase === "error") {
     return (
       <div className="bg-slate-900/90 backdrop-blur-xl border border-red-500/30 rounded-2xl p-8 text-center">
