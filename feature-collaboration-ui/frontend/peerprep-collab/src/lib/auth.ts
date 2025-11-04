@@ -1,6 +1,8 @@
 // ---- config helpers ----
 function getUserSvcBase() {
-  return process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
+  const userServiceURL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
+  console.log("[Collab UI] User Service URL:", userServiceURL);
+  return userServiceURL;
 }
 
 function scrubParams(params: string[]) {
