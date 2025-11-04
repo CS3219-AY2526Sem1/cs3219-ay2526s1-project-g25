@@ -29,6 +29,7 @@ export async function redeemTempFromQuery(): Promise<string | null> {
 
   const urlParams = new URLSearchParams(window.location.search);
   const temp = urlParams.get("temp");
+  console.log("[Auth] Redeeming temp key from URL:", temp);
   if (!temp) return null;
 
   const res = await fetch(`${getUserSvcBase()}/auth/resolve-temp`, {

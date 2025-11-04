@@ -33,7 +33,14 @@ function CollabPage() {
       try {
         // Redeems ?temp=… into a short-lived token, stores it in sessionStorage,
         // and scrubs ?temp from the URL.
-        await redeemTempFromQuery();
+        const token = await redeemTempFromQuery();
+
+        if (token) {
+          console.log("[CollabPage] Redeem successful. Token length:", token.length);
+          sessionStorage.setItem("collabToken", token); // (redundant but explicit)
+        } else {
+          console.warn("[CollabPage] No token returned from redeemTempFromQuery");
+        }
       } catch (e) {
         console.error("[CollabPage] redeem failed", e);
         // Non-fatal: page can still try legacy/localStorage flows
