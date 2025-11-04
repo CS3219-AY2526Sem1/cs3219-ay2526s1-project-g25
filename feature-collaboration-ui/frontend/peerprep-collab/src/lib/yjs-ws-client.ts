@@ -2,7 +2,11 @@
 import * as Y from "yjs";
 
 export function attachYDocToWs(wsUrl: string, doc: Y.Doc) {
-  const ws = new WebSocket(wsUrl);
+  const token = (typeof window !== 'undefined') ? sessionStorage.getItem('collabToken') : null;
+  const url = new URL(wsUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+  if (token && !url.searchParams.get('t')) url.searchParams.set('t', token);
+
+  const ws = new WebSocket(url.toString());
   ws.binaryType = "arraybuffer";
 
   const onWsMessage = (evt: MessageEvent) => {
