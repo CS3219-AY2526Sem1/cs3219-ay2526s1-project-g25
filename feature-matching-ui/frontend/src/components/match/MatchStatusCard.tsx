@@ -82,56 +82,67 @@ export default function MatchStatusCard({
   // };
 
   const handleStartSession = async () => {
-  if (!matchData?.sessionId) {
-    console.error("[MatchStatusCard] Missing sessionId:", matchData);
-    alert("No collaboration session found. Please try again.");
-    return;
-  }
-
-  const baseUrl =
-    process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:4000";
-  const userServiceUrl =
-    process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
-
-  const token = localStorage.getItem("accessToken");
-  if (!token) {
-    alert("Please log in again — token not found.");
-    return;
-  }
-
-  try {
-    // STEP 1: Ask the User Service to create a temporary key
-    const tempRes = await fetch(`${userServiceUrl}/auth/temp-token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!tempRes.ok) {
-      console.error("[MatchStatusCard] Failed to create temp token");
-      alert("Failed to create secure session key.");
+    if (!matchData?.sessionId) {
+      console.error("[MatchStatusCard] Missing sessionId:", matchData);
+      alert("No collaboration session found. Please try again.");
       return;
     }
 
-    const { tempKey } = await tempRes.json();
-    if (!tempKey) {
-      alert("No temp key returned from User Service");
+    const baseUrl =
+      process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:4000";
+    const userServiceUrl =
+      process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
+
+    const accessToken = localStorage.getItem("accessToken");
+    if (!accessToken) {
+      alert("Please log in again — token not found.");
       return;
     }
 
-    // ✅ STEP 2: Redirect to Collaboration UI with only the temp key
-    const collabUrl = `${baseUrl.replace(/\/$/, "")}/collab?sessionId=${
-      matchData.sessionId
-    }&temp=${tempKey}`;
+    // helper to redirect with ?temp
+    const go = (tempKey: string) => {
+      const collabUrl =
+        `${baseUrl.replace(/\/$/, "")}/collab?sessionId=${matchData.sessionId}` +
+        `&temp=${encodeURIComponent(tempKey)}`;
+      console.log("[MatchStatusCard] Redirecting securely to:", collabUrl);
+      window.location.href = collabUrl;
+    };
 
-    console.log(`[MatchStatusCard] Redirecting securely to: ${collabUrl}`);
-    window.location.href = collabUrl;
-  } catch (err) {
-    console.error("[MatchStatusCard] Error during temp key creation:", err);
-    alert("Error starting session. Please try again.");
-  }
-};
+    try {
+      // Try 1: Authorization header
+      let resp = await fetch(`${userServiceUrl}/auth/temp-token`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      // Fallback: body { jwt } if server expects it
+      if (resp.status === 401 || resp.status === 400) {
+        console.warn("[MatchStatusCard] auth header rejected, retrying with body { jwt } …");
+        resp = await fetch(`${userServiceUrl}/auth/temp-token`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jwt: accessToken }),
+        });
+      }
+
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => "");
+        console.error("[MatchStatusCard] temp-token failed:", resp.status, txt);
+        alert("Failed to create secure session key.");
+        return;
+      }
+
+      const { tempKey } = await resp.json();
+      if (!tempKey) {
+        alert("User Service did not return a temp key.");
+        return;
+      }
+      go(tempKey);
+    } catch (err) {
+      console.error("[MatchStatusCard] Error during temp key creation:", err);
+      alert("Error starting session. Please try again.");
+    }
+  };
 
 
   // 🕓 SEARCHING PHASE
