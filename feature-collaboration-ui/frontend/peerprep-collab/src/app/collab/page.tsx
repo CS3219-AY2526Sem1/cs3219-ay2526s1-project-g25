@@ -52,9 +52,12 @@ function CollabPage() {
     console.log("[CollabPage] Connecting to WebSocket:", wsUrl);
 
     const token = typeof window !== "undefined" ? sessionStorage.getItem("collabToken") : null;
-    const ws = new WebSocket(wsUrl, token ? ['bearer', token] as string[] : undefined);
+    if (!token) {
+      console.warn("[CollabPage] No collabToken yet — skipping WS connect until redeem completes.");
+      return;
+    }
 
-    //const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl, token ? ['bearer', token] as string[] : undefined);
     socketRef.current = ws;
 
     ws.onopen = () => {
@@ -109,7 +112,7 @@ function CollabPage() {
       ws.close();
       window.removeEventListener('session-end', handleSessionEnd as EventListener);
     };
-  }, [sessionId, userId, router]);
+  }, [authReady, sessionId, userId, router]);
 
   /* ----------  Fetch Question  ---------- */
   useEffect(() => {
@@ -148,10 +151,6 @@ function CollabPage() {
     if (!sessionId) return;
     (async () => {
       try {
-        // Fetch session info from Collaboration backend
-        // const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || 'http://localhost:3004';
-        // console.log('[CollabPage] Fetching session with baseUrl:', baseUrl);
-        // const res = await fetch(`${baseUrl}/sessions/${sessionId}`);
         const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || 'http://localhost:3004';
         console.log('[CollabPage] Fetching session with baseUrl:', baseUrl);
 
