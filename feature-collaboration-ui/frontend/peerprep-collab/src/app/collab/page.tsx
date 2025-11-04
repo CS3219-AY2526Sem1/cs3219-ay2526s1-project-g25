@@ -123,65 +123,50 @@ function CollabPage() {
 
   /* ----------  Fetch Question  ---------- */
   useEffect(() => {
+    // wait until temp redemption has finished
+    if (!authReady) return;
+
     // Mark as client-side rendered
     setIsClient(true);
-    
-    // Get user authentication - check URL params first, then localStorage
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get("token");
-    const urlUserIdFromParams = urlParams.get("userId");
-    
-    console.log('[CollabPage] URL params:', { urlToken: urlToken ? 'present' : 'missing', urlUserIdFromParams });
-    
-    if (urlToken) {
-      // Token passed via URL - store it and use it
-      console.log('[CollabPage] Using token from URL');
-      localStorage.setItem("accessToken", urlToken);
-      const payload = parseJwt<{ userId: number }>(urlToken);
-      setUserId(payload?.userId ? String(payload.userId) : urlUserIdFromParams);
-    } else if (isAuthenticated()) {
-      // No URL token, check localStorage
-      console.log('[CollabPage] Using token from localStorage');
-      const token = getAccessToken();
-      if (token) {
-        const payload = parseJwt<{ userId: number }>(token);
-        setUserId(payload?.userId ? String(payload.userId) : null);
-      }
-    } else if (urlUserIdFromParams) {
-      // Fallback to URL userId if no token
-      console.log('[CollabPage] Using userId from URL as fallback');
-      setUserId(urlUserIdFromParams);
+
+    // Prefer the newly redeemed collab token (sessionStorage),
+    // then fall back to legacy localStorage token (old flow).
+    const collab = typeof window !== "undefined" ? sessionStorage.getItem("collabToken") : null;
+    const legacy = getAccessToken(); // your helper that reads localStorage
+    const token = collab || legacy || null;
+
+    // Derive userId from whichever token we have (if any)
+    if (token) {
+      const payload = parseJwt<{ userId: number }>(token);
+      setUserId(prev => prev ?? (payload?.userId ? String(payload.userId) : null));
     } else {
-      console.log('[CollabPage] No authentication found');
+      // keep your old fallbacks if you still want them:
+      const urlUserIdFromParams = new URLSearchParams(window.location.search).get("userId");
+      if (urlUserIdFromParams) setUserId(urlUserIdFromParams);
     }
 
     if (!sessionId) return;
+
     (async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || 'http://localhost:3004';
-        console.log('[CollabPage] Fetching session with baseUrl:', baseUrl);
-
-        // Pull a token if present (prefer the redeemed collab token)
-        const token =
-          (typeof window !== "undefined" && sessionStorage.getItem("collabToken")) ||
-          getAccessToken() || // legacy fallback
-          null;
+        const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:3004";
+        console.log("[CollabPage] Fetching session with baseUrl:", baseUrl, "auth?", !!token);
 
         const res = await fetch(`${baseUrl}/sessions/${sessionId}`, {
-          headers: token ? { authorization: `Bearer ${token}` } as HeadersInit : undefined,
+          headers: token ? ({ authorization: `Bearer ${token}` } as HeadersInit) : undefined,
         });
 
         const data = await res.json();
-
         if (!data.session) throw new Error("No session found");
+
         const qid = data.session.questionId;
 
-        // Fetch question details from Question Service
-        const questionBaseUrl = process.env.NEXT_PUBLIC_QUESTION_BASE_URL || 'http://localhost:5050';
-        console.log('[CollabPage] Fetching question with baseUrl:', questionBaseUrl);
+        const questionBaseUrl =
+          process.env.NEXT_PUBLIC_QUESTION_BASE_URL || "http://localhost:5050";
+        console.log("[CollabPage] Fetching question with baseUrl:", questionBaseUrl);
+
         const qres = await fetch(`${questionBaseUrl}/questions/${qid}`);
         const qdata = await qres.json();
-
         setQuestion(qdata);
       } catch (err) {
         console.error("[CollabPage] Failed to fetch question:", err);
@@ -189,7 +174,8 @@ function CollabPage() {
         setLoading(false);
       }
     })();
-  }, [sessionId]);
+  }, [sessionId, authReady]); // <-- key change: depend on authReady
+
 
   // Show loading state during hydration
   if (!isClient) {
