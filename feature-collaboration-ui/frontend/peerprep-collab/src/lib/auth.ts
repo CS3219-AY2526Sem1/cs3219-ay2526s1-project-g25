@@ -1,7 +1,12 @@
 // ---- config helpers ----
 function getUserSvcBase() {
-  const userServiceURL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
-  console.log("[Collab UI] User Service URL:", userServiceURL);
+  const userServiceURL = process.env.NEXT_PUBLIC_USER_SERVICE_URL;
+  if (!userServiceURL) {
+    console.error("[Collab UI] NEXT_PUBLIC_USER_SERVICE_URL is missing at build time");
+    throw new Error("Missing NEXT_PUBLIC_USER_SERVICE_URL");
+  } else {
+    console.log("[Collab UI] User Service URL:", userServiceURL);
+  }
   return userServiceURL;
 }
 
@@ -32,6 +37,8 @@ export async function redeemTempFromQuery(): Promise<string | null> {
   console.log("[Auth] Redeeming temp key from URL:", temp);
   if (!temp) return null;
 
+  console.log("[Collab UI Auth] Redeeming temp key via User Service...");
+  console.log("[Collab UI Auth] User Service URL:", getUserSvcBase());
   const res = await fetch(`${getUserSvcBase()}/auth/resolve-temp`, {
     method: "POST",
     headers: { "content-type": "application/json" },
