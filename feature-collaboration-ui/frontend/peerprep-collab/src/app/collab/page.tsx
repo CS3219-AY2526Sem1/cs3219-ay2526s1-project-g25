@@ -152,7 +152,6 @@ function CollabPage() {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:3004";
         console.log("[CollabPage] Fetching session with baseUrl:", baseUrl, "auth?", !!token);
-        console.log("[CollabPage] Checking userURL: process.env.NEXT_PUBLIC_USER_SERVICE_URL =", process.env.NEXT_PUBLIC_USER_SERVICE_URL);
 
         const res = await fetch(`${baseUrl}/sessions/${sessionId}`, {
           headers: token ? ({ authorization: `Bearer ${token}` } as HeadersInit) : undefined,
