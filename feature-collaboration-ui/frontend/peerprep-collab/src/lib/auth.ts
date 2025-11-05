@@ -4,8 +4,6 @@ function getUserSvcBase() {
   if (!userServiceURL) {
     console.error("[Collab UI] NEXT_PUBLIC_USER_SERVICE_URL is missing at build time");
     throw new Error("Missing NEXT_PUBLIC_USER_SERVICE_URL");
-  } else {
-    console.log("[Collab UI] User Service URL:", userServiceURL);
   }
   return userServiceURL;
 }
