@@ -32,29 +32,46 @@ export function syncTokenFromQuery(): void {
 export async function redeemTempFromQuery(): Promise<string | null> {
   if (typeof window === "undefined") return null;
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const temp = urlParams.get("temp");
+  const url = new URL(window.location.href);
+  const temp = url.searchParams.get("temp");
   console.log("[Auth] Redeeming temp key from URL:", temp);
   if (!temp) return null;
 
-  console.log("[Collab UI Auth] Redeeming temp key via User Service...");
-  console.log("[Collab UI Auth] User Service URL:", getUserSvcBase());
-  const res = await fetch(`${getUserSvcBase()}/auth/resolve-temp`, {
+  const base = getUserSvcBase();
+  const res = await fetch(`${base}/auth/resolve-temp`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ tempKey: temp }),
   });
 
-  if (!res.ok) throw new Error("redeem failed");
+  console.log("[Auth] Redeem status:", res.status);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("[Auth] Redeem failed:", res.status, body);
+    throw new Error(`redeem failed: ${res.status}`);
+  }
 
-  const { token } = await res.json();
+  // Be liberal in what we accept
+  const data: any = await res.json();
+  const returned =
+    data?.token ??
+    data?.accessToken ??         // some services name it this way
+    data?.jwt ??                 // just in case
+    null;
 
-  // Prefer session-scoped storage for short-lived collab tokens
-  sessionStorage.setItem("collabToken", token);
-  scrubParams(["temp"]);
-  console.log("[Collab UI Auth] Temp key redeemed, collab token stored in sessionStorage.");
+  if (!returned) {
+    console.warn("[Auth] Resolve-temp response had no token field; raw:", data);
+    return null;
+  }
 
-  return token;
+  sessionStorage.setItem("collabToken", returned);
+  console.log("[Auth] Temp key redeemed; collab token stored in sessionStorage.");
+
+  // scrub ?temp from URL
+  url.searchParams.delete("temp");
+  window.history.replaceState({}, "", url.toString());
+
+  return returned; // <-- important: return what we stored
 }
 
 // ---- token getters ----
