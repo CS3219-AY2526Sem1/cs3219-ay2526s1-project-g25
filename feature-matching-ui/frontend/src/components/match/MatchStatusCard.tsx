@@ -92,6 +92,7 @@ export default function MatchStatusCard({
       process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:4000";
     const userServiceUrl =
       process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
+    console.log("[MatchStatusCard] User Service URL:", userServiceUrl);
 
     const accessToken = localStorage.getItem("accessToken");
     if (!accessToken) {

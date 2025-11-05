@@ -2,6 +2,7 @@
 import axios from "axios";
 
 const USER_SERVICE_BASE_URL = process.env.USER_SERVICE_BASE_URL || "http://localhost:3001";
+console.log("[Auth Proxy] User Service Base URL:", USER_SERVICE_BASE_URL);
 
 /**
  * Middleware to authenticate user using token from User Service
