@@ -52,6 +52,7 @@ export async function redeemTempFromQuery(): Promise<string | null> {
   // Prefer session-scoped storage for short-lived collab tokens
   sessionStorage.setItem("collabToken", token);
   scrubParams(["temp"]);
+  console.log("[Collab UI Auth] Temp key redeemed, collab token stored in sessionStorage.");
 
   return token;
 }
