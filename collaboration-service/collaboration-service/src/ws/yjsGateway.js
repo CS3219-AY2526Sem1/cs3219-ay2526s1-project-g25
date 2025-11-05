@@ -103,14 +103,31 @@ export function initYjsGateway(yws) {
       return ws.close(4001, "unauthorized");
     }
     try {
-      const claims = jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET);
-      // Optional audience check if used when minting:
-      // if (claims.aud !== "collaboration") return ws.close(4001, "wrong-audience");
+      const secret = process.env.JWT_ACCESS_TOKEN_SECRET;
+      console.log("[YJS Gateway] Verifying token with secret length:", secret?.length);
+      console.log("[YJS Gateway] Token (first 30 chars):", token.substring(0, 30) + "...");
+
+      const claims = jwt.verify(token, secret);
+      console.log("[YJS Gateway] JWT verified successfully. Claims:", claims);
+
       ws.user = { id: claims.userId, roles: claims.roles };
     } catch (e) {
-      console.log("[YJS Gateway] JWT verify failed:", e?.message);
+      console.error("[YJS Gateway] JWT verify failed:", e.message);
+      if (e.message.includes("invalid signature")) {
+        console.error("[YJS Gateway] ⚠️ Likely cause: JWT_ACCESS_TOKEN_SECRET mismatch between User and Collab services.");
+      }
       return ws.close(4001, "unauthorized");
     }
+
+    // try {
+    //   const claims = jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET);
+    //   // Optional audience check if used when minting:
+    //   // if (claims.aud !== "collaboration") return ws.close(4001, "wrong-audience");
+    //   ws.user = { id: claims.userId, roles: claims.roles };
+    // } catch (e) {
+    //   console.log("[YJS Gateway] JWT verify failed:", e?.message);
+    //   return ws.close(4001, "unauthorized");
+    // }
 
     const sessionId = searchParams.get("sessionId") || "default";
     const userId = searchParams.get("userId") || "anon";
