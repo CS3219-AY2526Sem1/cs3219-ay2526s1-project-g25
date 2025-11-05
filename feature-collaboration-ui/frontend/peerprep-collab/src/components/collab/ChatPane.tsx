@@ -71,8 +71,16 @@ export default function ChatPane() {
   // 🔒 Cleanup: close socket when component unmounts or deps change
   return () => {
     console.log("❌ Closing collab socket...");
-    ws.close();
+    try {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        ws.close();
+      }
+      // or simply: ws?.close();
+    } catch (e) {
+      console.warn("[ChatPane] error closing socket:", e);
+    }
   };
+
 }, [sessionId, userId]); // Don't include currentLanguage - it causes WebSocket to reconnect
 
 
