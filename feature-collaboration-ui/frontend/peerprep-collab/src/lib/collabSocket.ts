@@ -6,13 +6,7 @@ export function connectCollabSocket(sessionId: string, userId: string, onMessage
     const fullUrl = `${wsUrl}?sessionId=${sessionId}&userId=${userId}`;
         console.log("[CollabSocket] Connecting to:", fullUrl);
 
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('collabToken') : null;
-    if (!token) {
-    console.warn("[CollabSocket] No collabToken yet—skip connect and retry after redeem.");
-    return { ws: null, send: () => {}, executeCode(){}, executeTestCases(){}, updateCursor(){}, sendOperation(){}, sendChatMessage(){} };
-    }
-    const ws = new WebSocket(fullUrl, ['bearer', token]);
-
+    const ws = new WebSocket(fullUrl);
 
     ws.onopen = (e) => {
         console.log("[CollabSocket] WebSocket opened successfully");

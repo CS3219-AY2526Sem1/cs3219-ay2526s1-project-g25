@@ -22,7 +22,6 @@ useEffect(() => {
   const tempKey = urlParams.get("temp");
   const userServiceUrl =
     process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
-  console.log("[MatchPage] User Service URL:", userServiceUrl);
 
   const handleAuth = async () => {
     try {

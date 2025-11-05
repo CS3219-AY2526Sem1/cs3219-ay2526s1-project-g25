@@ -7,7 +7,7 @@ import QuestionPane from "@/components/collab/QuestionPane";
 import { useEffect, useState, useRef, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
-import { redeemTempFromQuery, getAccessToken, parseJwt, isAuthenticated } from "@/lib/auth";
+import { getAccessToken, parseJwt, isAuthenticated } from "@/lib/auth";
 import {
   PanelGroup,
   Panel,
@@ -25,47 +25,14 @@ function CollabPage() {
   const [isClient, setIsClient] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const [sendMsg, setSendMsg] = useState<(msg: any) => void>(() => () => {});
-  const [authReady, setAuthReady] = useState(false);
-
-  /* ----------  Authentication Setup  ---------- */
-  useEffect(() => {
-    (async () => {
-      try {
-        // Redeems ?temp=… into a short-lived token, stores it in sessionStorage,
-        // and scrubs ?temp from the URL.
-        const token = await redeemTempFromQuery();
-
-        if (token) {
-          console.log("[CollabPage] Redeem successful. Token length:", token.length);
-          sessionStorage.setItem("collabToken", token); // (redundant but explicit)
-        } else {
-          console.warn("[CollabPage] No token returned from redeemTempFromQuery");
-        }
-      } catch (e) {
-        console.error("[CollabPage] redeem failed", e);
-        console.error("[CollabPage] Ensure NEXT_PUBLIC_USER_SERVICE_URL is set correctly, currently:", process.env.NEXT_PUBLIC_USER_SERVICE_URL);
-        // Non-fatal: page can still try legacy/localStorage flows
-      } finally {
-        setAuthReady(true);
-      }
-    })();
-  }, []);
 
   /* ----------  WebSocket  ---------- */
   useEffect(() => {
-    if (!authReady) return;
     if (!sessionId || !userId) return;
     const baseUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004";
     const wsUrl = `${baseUrl}/ws?sessionId=${sessionId}&userId=${userId}`;
     console.log("[CollabPage] Connecting to WebSocket:", wsUrl);
-
-    const token = typeof window !== "undefined" ? sessionStorage.getItem("collabToken") : null;
-    if (!token) {
-      console.warn("[CollabPage] No collabToken yet — skipping WS connect until redeem completes.");
-      return;
-    }
-
-    const ws = new WebSocket(wsUrl, token ? ['bearer', token] as string[] : undefined);
+    const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
     ws.onopen = () => {
@@ -120,54 +87,60 @@ function CollabPage() {
       ws.close();
       window.removeEventListener('session-end', handleSessionEnd as EventListener);
     };
-  }, [authReady, sessionId, userId, router]);
+  }, [sessionId, userId, router]);
 
   /* ----------  Fetch Question  ---------- */
   useEffect(() => {
-    // wait until temp redemption has finished
-    if (!authReady) return;
-
     // Mark as client-side rendered
     setIsClient(true);
-
-    // Prefer the newly redeemed collab token (sessionStorage),
-    // then fall back to legacy localStorage token (old flow).
-    const collab = typeof window !== "undefined" ? sessionStorage.getItem("collabToken") : null;
-    const legacy = getAccessToken(); // your helper that reads localStorage
-    const token = collab || legacy || null;
-
-    // Derive userId from whichever token we have (if any)
-    if (token) {
-      const payload = parseJwt<{ userId: number }>(token);
-      setUserId(prev => prev ?? (payload?.userId ? String(payload.userId) : null));
+    
+    // Get user authentication - check URL params first, then localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get("token");
+    const urlUserIdFromParams = urlParams.get("userId");
+    
+    console.log('[CollabPage] URL params:', { urlToken: urlToken ? 'present' : 'missing', urlUserIdFromParams });
+    
+    if (urlToken) {
+      // Token passed via URL - store it and use it
+      console.log('[CollabPage] Using token from URL');
+      localStorage.setItem("accessToken", urlToken);
+      const payload = parseJwt<{ userId: number }>(urlToken);
+      setUserId(payload?.userId ? String(payload.userId) : urlUserIdFromParams);
+    } else if (isAuthenticated()) {
+      // No URL token, check localStorage
+      console.log('[CollabPage] Using token from localStorage');
+      const token = getAccessToken();
+      if (token) {
+        const payload = parseJwt<{ userId: number }>(token);
+        setUserId(payload?.userId ? String(payload.userId) : null);
+      }
+    } else if (urlUserIdFromParams) {
+      // Fallback to URL userId if no token
+      console.log('[CollabPage] Using userId from URL as fallback');
+      setUserId(urlUserIdFromParams);
     } else {
-      // keep your old fallbacks if you still want them:
-      const urlUserIdFromParams = new URLSearchParams(window.location.search).get("userId");
-      if (urlUserIdFromParams) setUserId(urlUserIdFromParams);
+      console.log('[CollabPage] No authentication found');
     }
 
     if (!sessionId) return;
-
     (async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:3004";
-        console.log("[CollabPage] Fetching session with baseUrl:", baseUrl, "auth?", !!token);
-
-        const res = await fetch(`${baseUrl}/sessions/${sessionId}`, {
-          headers: token ? ({ authorization: `Bearer ${token}` } as HeadersInit) : undefined,
-        });
-
+        // Fetch session info from Collaboration backend
+        const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || 'http://localhost:3004';
+        console.log('[CollabPage] Fetching session with baseUrl:', baseUrl);
+        const res = await fetch(`${baseUrl}/sessions/${sessionId}`);
         const data = await res.json();
-        if (!data.session) throw new Error("No session found");
 
+        if (!data.session) throw new Error("No session found");
         const qid = data.session.questionId;
 
-        const questionBaseUrl =
-          process.env.NEXT_PUBLIC_QUESTION_BASE_URL || "http://localhost:5050";
-        console.log("[CollabPage] Fetching question with baseUrl:", questionBaseUrl);
-
+        // Fetch question details from Question Service
+        const questionBaseUrl = process.env.NEXT_PUBLIC_QUESTION_BASE_URL || 'http://localhost:5050';
+        console.log('[CollabPage] Fetching question with baseUrl:', questionBaseUrl);
         const qres = await fetch(`${questionBaseUrl}/questions/${qid}`);
         const qdata = await qres.json();
+
         setQuestion(qdata);
       } catch (err) {
         console.error("[CollabPage] Failed to fetch question:", err);
@@ -175,8 +148,7 @@ function CollabPage() {
         setLoading(false);
       }
     })();
-  }, [sessionId, authReady]); // <-- key change: depend on authReady
-
+  }, [sessionId]);
 
   // Show loading state during hydration
   if (!isClient) {

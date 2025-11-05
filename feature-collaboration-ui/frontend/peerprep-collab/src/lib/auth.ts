@@ -1,102 +1,35 @@
-// ---- config helpers ----
-function getUserSvcBase() {
-  const userServiceURL = process.env.NEXT_PUBLIC_USER_SERVICE_URL;
-  if (!userServiceURL) {
-    console.error("[Collab UI] NEXT_PUBLIC_USER_SERVICE_URL is missing at build time");
-    throw new Error("Missing NEXT_PUBLIC_USER_SERVICE_URL");
-  }
-  return userServiceURL;
-}
-
-function scrubParams(params: string[]) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  params.forEach(p => url.searchParams.delete(p));
-  window.history.replaceState({}, "", url.toString());
-}
-
-// ---- legacy: keep supporting ?token= for now ----
+// src/lib/auth.ts
 export function syncTokenFromQuery(): void {
   if (typeof window === "undefined") return;
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get("token");
   if (token) {
-    localStorage.setItem("accessToken", token); // legacy storage
-    scrubParams(["token"]);
+    localStorage.setItem("accessToken", token);
   }
 }
 
-// ---- new: redeem ?temp=<tempKey> via User Service ----
-export async function redeemTempFromQuery(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-
-  const url = new URL(window.location.href);
-  const temp = url.searchParams.get("temp");
-  console.log("[Auth] Redeeming temp key from URL:", temp);
-  if (!temp) return null;
-
-  const base = getUserSvcBase();
-  const res = await fetch(`${base}/auth/resolve-temp`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ tempKey: temp }),
-  });
-
-  console.log("[Auth] Redeem status:", res.status);
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error("[Auth] Redeem failed:", res.status, body);
-    throw new Error(`redeem failed: ${res.status}`);
-  }
-
-  // Be liberal in what we accept
-  const data: any = await res.json();
-  const returned =
-    data?.token ??
-    data?.accessToken ??         // some services name it this way
-    data?.jwt ??                 // just in case
-    null;
-
-  if (!returned) {
-    console.warn("[Auth] Resolve-temp response had no token field; raw:", data);
-    return null;
-  }
-
-  sessionStorage.setItem("collabToken", returned);
-  console.log("[Auth] Temp key redeemed; collab token stored in sessionStorage.");
-
-  // scrub ?temp from URL
-  url.searchParams.delete("temp");
-  window.history.replaceState({}, "", url.toString());
-
-  return returned; // <-- important: return what we stored
-}
-
-// ---- token getters ----
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
 
-  // 1) try the new collab token first
-  const collab = sessionStorage.getItem("collabToken");
-  if (collab) return collab;
-
-  // 2) legacy behavior (kept for backward compatibility)
+  // If token was sent via query but not saved yet, sync it first
   syncTokenFromQuery();
-  const legacy = localStorage.getItem("accessToken");
-  if (legacy) return legacy;
 
-  // 3) final attempt: if someone still injected ?token= in URL
-  const urlToken = new URLSearchParams(window.location.search).get("token");
-  if (urlToken) {
-    localStorage.setItem("accessToken", urlToken);
-    scrubParams(["token"]);
-    return urlToken;
+  const token = localStorage.getItem("accessToken");
+  
+  // If no token in localStorage, try to get from URL params
+  if (!token) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get("token");
+    if (urlToken) {
+      localStorage.setItem("accessToken", urlToken);
+      return urlToken;
+    }
   }
-
-  return null;
+  
+  return token || null;
 }
 
-// Simple and browser-safe JWT decode (unchanged)
+// Simple and browser-safe JWT decode
 export function parseJwt<T = any>(token: string): T | null {
   try {
     const base64Url = token.split(".")[1];
@@ -125,8 +58,7 @@ export function isAuthenticated(): boolean {
 
 export function logout(): void {
   if (typeof window === "undefined") return;
-  sessionStorage.removeItem("collabToken");
-  localStorage.removeItem("accessToken"); // legacy
+  localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("user");
 }
