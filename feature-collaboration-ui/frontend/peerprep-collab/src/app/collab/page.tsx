@@ -43,6 +43,7 @@ function CollabPage() {
         }
       } catch (e) {
         console.error("[CollabPage] redeem failed", e);
+        console.error("[CollabPage] Ensure NEXT_PUBLIC_USER_SERVICE_URL is set correctly, currently:", process.env.NEXT_PUBLIC_USER_SERVICE_URL);
         // Non-fatal: page can still try legacy/localStorage flows
       } finally {
         setAuthReady(true);
