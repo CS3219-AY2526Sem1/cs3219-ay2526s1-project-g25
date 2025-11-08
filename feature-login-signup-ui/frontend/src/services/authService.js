@@ -117,6 +117,12 @@ class AuthService {
     );
     return response.data;
   }
+
+  /* ─────────── RESEND VERIFICATION ─────────── */
+  async resendVerification(email) {
+    const response = await axios.post(`${API_URL}/auth/resend-verification`, { email });
+    return response.data;
+  }
 }
 
 export default new AuthService();

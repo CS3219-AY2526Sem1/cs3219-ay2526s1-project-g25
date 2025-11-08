@@ -10,6 +10,7 @@ import {
   refreshToken,
   logout,
   requestPasswordReset,
+  resendVerification,
   confirmPasswordReset
 } from '../controllers/authController.js'
 
@@ -47,6 +48,9 @@ router.post('/logout', logout)
 
 // Request password reset email
 router.post('/password-reset', body('email').isEmail(), requestPasswordReset)
+
+// Resend verification email
+router.post('/resend-verification', body('email').isEmail(), resendVerification)
 
 // Serve password reset page
 router.get('/reset-password', (req, res) => {

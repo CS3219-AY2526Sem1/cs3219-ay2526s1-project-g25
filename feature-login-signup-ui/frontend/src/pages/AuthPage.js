@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import authService from '../services/authService';
 import './AuthPage.css';
 import LoginForm from '../components/LoginForm';
 import SignupForm from '../components/SignupForm';
+import ResendVerificationModal from '../components/ResendVerificationModal';
 import FloatingCode from '../components/FloatingCode';
 import TypingText from '../components/TypingText';
 
 function AuthPage() {
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
+  const location = useLocation();
+  const [showResend, setShowResend] = useState(!!(location.state && location.state.showResendOption));
 
   useEffect(() => {
     // If already logged in, redirect based on role
@@ -47,15 +50,6 @@ function AuthPage() {
         <div className="gradient-blob blob-1"></div>
         <div className="gradient-blob blob-2"></div>
         <div className="gradient-blob blob-3"></div>
-        <div className="circuit-lines">
-          {[...Array(20)].map((_, i) => (
-            <div key={i} className="circuit-line" style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`
-            }}></div>
-          ))}
-        </div>
       </div>
 
       {/* Floating Code Snippets */}
@@ -163,6 +157,9 @@ function AuthPage() {
           </motion.div>
 
           {/* Forms */}
+          {/* Resend Verification Modal (opened from forms) */}
+          <ResendVerificationModal isOpen={showResend} onClose={() => setShowResend(false)} initialEmail={location.state?.email || ''} />
+
           <motion.div 
             className="form-container"
             key={activeTab}
@@ -172,9 +169,9 @@ function AuthPage() {
             transition={{ duration: 0.3 }}
           >
             {activeTab === 'login' ? (
-              <LoginForm onSuccess={handleLoginSuccess} />
+              <LoginForm onSuccess={handleLoginSuccess} showResendSetter={setShowResend} />
             ) : (
-              <SignupForm onSuccess={handleSignupSuccess} />
+              <SignupForm onSuccess={handleSignupSuccess} showResendSetter={setShowResend} />
             )}
           </motion.div>
 
@@ -189,31 +186,7 @@ function AuthPage() {
           </motion.div>
         </motion.div>
 
-        {/* Floating Particles */}
-        <div className="particles">
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="particle"
-              initial={{
-                x: Math.random() * window.innerWidth,
-                y: Math.random() * window.innerHeight,
-                scale: Math.random() * 0.5 + 0.5
-              }}
-              animate={{
-                y: [null, -100, null],
-                x: [null, Math.random() * 100 - 50, null],
-                opacity: [0, 1, 0],
-              }}
-              transition={{
-                duration: 3 + Math.random() * 4,
-                delay: Math.random() * 5,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            />
-          ))}
-        </div>
+        {/* Floating Particles removed for simplicity */}
       </motion.div>
     </div>
   );

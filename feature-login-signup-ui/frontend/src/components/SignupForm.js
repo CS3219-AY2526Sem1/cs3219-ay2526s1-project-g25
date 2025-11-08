@@ -5,7 +5,7 @@ import { validateSignupForm, getSignupErrorMessage } from '../utils/validation';
 import toast from 'react-hot-toast';
 import './AuthForms.css';
 
-function SignupForm({ onSuccess }) {
+function SignupForm({ onSuccess, showResendSetter }) {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -112,6 +112,23 @@ function SignupForm({ onSuccess }) {
           'Sign Up'
         )}
       </motion.button>
+
+      <motion.div 
+        className="form-links"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.75 }}
+      >
+        <motion.button
+          type="button"
+          className="link-button resend-verification-link"
+          onClick={() => showResendSetter && showResendSetter(true)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          Resend Verification Email
+        </motion.button>
+      </motion.div>
     </form>
   );
 }

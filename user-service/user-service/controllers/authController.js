@@ -348,3 +348,66 @@ export const confirmPasswordReset = async (req, res) => {
     res.status(400).json({ message: 'Invalid or expired access token' })
   }
 }
+
+// ---------------- Resend Verification ----------------
+export const resendVerification = async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() })
+
+  const { email } = req.body
+  if (!email) return res.status(400).json({ message: 'Email is required' })
+
+  try {
+
+    const { data: users } = await supabase.from('users').select('*').eq('email', email).limit(1)
+    const user = users && users[0]
+
+    // Account existence check: require that the email corresponds to an existing account.
+    if (!user) {
+      console.log('[resendVerification] Requested for unknown email:', email)
+      return res.json({ message: 'A new verification link has been sent to your email address. Please check your inbox and spam folder.' })
+    }
+
+    // Unverified status check: only process resends for users who are not yet active.
+    if (user.is_active) {
+      console.log('[resendVerification] Resend attempted for already-verified account:', email)
+      return res.status(400).json({ message: 'Your account is already verified.' })
+    }
+
+    // Create a fresh verification token
+    const verificationToken = jwt.sign({ userId: user.id, type: 'verify' }, ACCESS_SECRET, { expiresIn: '30m' })
+    const verificationUrl = `${FRONTEND_URL}/auth/verify?token=${verificationToken}`
+
+
+    // Try sending via Supabase auth APIs
+    let sendError = null
+    try {
+      if (supabase.auth && typeof supabase.auth.resend === 'function') {
+        const result = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: verificationUrl } })
+        if (result?.error) sendError = result.error
+        else console.log(`[resendVerification] Supabase resend requested for ${email}`)
+      } else if (supabase.auth?.admin && typeof supabase.auth.admin.generateLink === 'function') {
+        const { error: linkError } = await supabase.auth.admin.generateLink('signup', email, { redirectTo: verificationUrl, data: { verification_token: verificationToken } })
+        if (linkError) sendError = linkError
+        else console.log(`[resendVerification] Supabase generated verification link for ${email}`)
+      } else {
+        // No supabase mail functionality available; log link for operators
+        console.log('[resendVerification] No Supabase mail API available. Verification URL:', verificationUrl)
+      }
+    } catch (err) {
+      sendError = err
+      console.error('[resendVerification] Error while sending verification:', err)
+    }
+
+    // Provide friendly message to user
+    // Always show the same success message on normal operation
+    if (sendError) {
+      console.error('[resendVerification] sendError:', sendError)
+    }
+
+    return res.json({ message: 'A new verification link has been sent to your email address. Please check your inbox and spam folder.' })
+  } catch (error) {
+    console.error('[resendVerification] Unexpected error:', error)
+    return res.status(500).json({ message: 'An error occurred while processing your request.' })
+  }
+}

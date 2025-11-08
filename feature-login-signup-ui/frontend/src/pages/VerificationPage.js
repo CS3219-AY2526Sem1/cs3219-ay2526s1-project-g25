@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import FloatingCode from '../components/FloatingCode';
+import ResendVerification from '../components/ResendVerification';
 import TypingText from '../components/TypingText';
 import './AuthPage.css';
 
@@ -52,8 +53,11 @@ function VerificationPage() {
   };
 
   const handleResendVerification = () => {
-    navigate('/auth', { state: { showResendOption: true } });
+    // Show inline resend UI on this page instead of navigating away
+    setShowInlineResend(true);
   };
+
+  const [showInlineResend, setShowInlineResend] = useState(false);
 
   const renderContent = () => {
     if (verificationStatus === 'loading') {
@@ -161,14 +165,20 @@ function VerificationPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
-            <motion.button
-              className="verification-button secondary"
-              onClick={handleResendVerification}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              Request New Verification
-            </motion.button>
+            {!showInlineResend ? (
+              <motion.button
+                className="verification-button secondary"
+                onClick={handleResendVerification}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Request New Verification
+              </motion.button>
+            ) : (
+              <div style={{ width: '100%' }}>
+                <ResendVerification onClose={() => setShowInlineResend(false)} />
+              </div>
+            )}
             <motion.button
               className="verification-button primary"
               onClick={handleContinueToLogin}

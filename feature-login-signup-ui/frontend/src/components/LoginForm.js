@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import './AuthForms.css';
 
-function LoginForm({ onSuccess }) {
+function LoginForm({ onSuccess, showResendSetter }) {
   const [formData, setFormData] = useState({
     identifier: '',
     password: ''
@@ -140,6 +140,15 @@ function LoginForm({ onSuccess }) {
             whileTap={{ scale: 0.95 }}
           >
             Forgot Password?
+          </motion.button>
+          <motion.button
+            type="button"
+            className="link-button resend-verification-link"
+            onClick={() => showResendSetter && showResendSetter(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Resend Verification Email
           </motion.button>
         </motion.div>
       </form>
