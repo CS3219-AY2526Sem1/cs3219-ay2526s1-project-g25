@@ -132,15 +132,21 @@ function CollabPage() {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       console.log("[CollabPage] Received message:", msg.type);
+      // if (msg.type === "session:end") {
+      //   console.log("[CollabPage] Received session:end message:", msg);
+      //   document.body.style.transition = "opacity 0.4s ease";
+      //   document.body.style.opacity = "0";
+      //   setTimeout(() => {
+      //     const dashboardUrl =
+      //       process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
+      //     window.location.href = dashboardUrl;
+      //   }, 400);
+      // }
       if (msg.type === "session:end") {
         console.log("[CollabPage] Received session:end message:", msg);
-        document.body.style.transition = "opacity 0.4s ease";
-        document.body.style.opacity = "0";
-        setTimeout(() => {
-          const dashboardUrl =
-            process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
-          window.location.href = dashboardUrl;
-        }, 400);
+        if ((window as any).__sessionEndDispatched) return;
+        (window as any).__sessionEndDispatched = true;
+        window.dispatchEvent(new CustomEvent("session-end", { detail: msg }));
       }
     };
 
@@ -213,6 +219,27 @@ function CollabPage() {
       }
     })();
   }, [sessionId, paramUserId]);
+
+  // handle session end event
+  useEffect(() => {
+    const onSessionEnd = () => {
+      if ((window as any).__sessionEndHandled) return;
+      (window as any).__sessionEndHandled = true;
+
+      alert("Your partner has ended the session. Returning to dashboard...");
+      document.body.style.transition = "opacity 0.4s ease";
+      document.body.style.opacity = "0";
+
+      setTimeout(() => {
+        const dashboardUrl =
+          process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
+        window.location.href = dashboardUrl;
+      }, 400);
+    };
+
+    window.addEventListener("session-end", onSessionEnd);
+    return () => window.removeEventListener("session-end", onSessionEnd);
+  }, []);
 
 
   // Show loading state during hydration
