@@ -2,6 +2,7 @@
 function getParams() {
   if (typeof window === "undefined") return { sessionId: "", userId: "" };
   const url = new URL(window.location.href);
+  console.log("Extracting params from URL:", url.href);
   return {
     sessionId: url.searchParams.get("sessionId") || "demo-session",
     userId:
@@ -10,4 +11,10 @@ function getParams() {
   };
 }
 
-export { getParams };
+function getSessionIdFromUrl() {
+  if (typeof window === "undefined") return "";
+  const url = new URL(window.location.href);
+  return url.searchParams.get("sessionId") || "demo-session";
+}
+
+export { getParams, getSessionIdFromUrl };

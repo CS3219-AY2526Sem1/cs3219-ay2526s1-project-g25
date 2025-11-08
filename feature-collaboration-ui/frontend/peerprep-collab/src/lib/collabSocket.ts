@@ -1,19 +1,19 @@
-export function connectCollabSocket(sessionId: string, userId: string, onMessage: (msg: any) => void) {
+export function connectCollabSocket(sessionId: string, userId: string, token: string, onMessage: (msg: any) => void, context: string = "Generic") {
     let wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004/ws";
-
     if (!wsUrl.endsWith("/ws")) wsUrl = wsUrl.replace(/\/?$/, "/ws");
 
-    const fullUrl = `${wsUrl}?sessionId=${sessionId}&userId=${userId}`;
-        console.log("[CollabSocket] Connecting to:", fullUrl);
+    const fullUrl = `${wsUrl}?sessionId=${sessionId}&userId=${userId}&token=${token}`;
+        //console.log("[CollabSocket] Connecting to:", fullUrl);
+        console.log(`[${context} via CollabSocket] Connecting to /ws`);
 
     const ws = new WebSocket(fullUrl);
 
     ws.onopen = (e) => {
-        console.log("[CollabSocket] WebSocket opened successfully");
+        console.log(`[${context} via CollabSocket] WebSocket connected to /ws ✅`);
     };
 
     ws.onmessage = (e) => {
-        console.log("[CollabSocket] Message received:", e.data);
+        console.log(`[${context} via CollabSocket] Message received:`, e.data);
         onMessage(JSON.parse(e.data));
     };
 
@@ -21,9 +21,9 @@ export function connectCollabSocket(sessionId: string, userId: string, onMessage
         const { code, reason } = evt;
         const normal = code === 1000 || code === 1001; // normal close or page unload/HMR
         if (!normal) {
-            console.warn("[CollabSocket] WebSocket closed unexpectedly:", code, reason);
+            console.warn(`[${context} via CollabSocket] WebSocket closed unexpectedly:`, code, reason);
         } else {
-            console.log("[CollabSocket] WebSocket closed normally.");
+            console.log(`[${context} via CollabSocket] WebSocket closed normally.`);
         }
     };
 
@@ -79,6 +79,6 @@ export function connectCollabSocket(sessionId: string, userId: string, onMessage
         executeTestCases, 
         updateCursor, 
         sendOperation, 
-        sendChatMessage 
+        sendChatMessage,
     };
 }

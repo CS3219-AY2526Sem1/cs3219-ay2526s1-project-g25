@@ -8,8 +8,10 @@ import { MessageSquare, Sparkles, Lightbulb, Code, Bug, Loader2 } from "lucide-r
 import { useEffect, useState } from "react"
 import { connectCollabSocket } from "@/lib/collabSocket"
 import { sendAIMessage, getHint, analyzeCode, debugError } from "@/lib/aiService"
-import { getParams } from "@/lib/helpers"
+import { getParams, getSessionIdFromUrl } from "@/lib/helpers"
 import { useCollabStore } from "@/lib/collabStore"
+import { readCollabToken, getUserIdFromToken } from "@/lib/tokenHelper"
+import { read } from "fs"
 
 export default function ChatPane() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai">("chat")
@@ -18,14 +20,13 @@ export default function ChatPane() {
   const [sendMsg, setSendMsg] = useState<(data: any) => void>(() => () => {})
   const [isAILoading, setIsAILoading] = useState(false)
 
-  const { sessionId, userId } = getParams()
+  const sessionId = getSessionIdFromUrl();
+  const userId = getUserIdFromToken() || "USER_ID_NOT_FOUND";
+  const token = readCollabToken();
 
-    // Initialize WebSocket
- useEffect(() => {
-  console.log("🔌 Opening collab socket...");
-  const { ws, send } = connectCollabSocket(sessionId, userId, (msg) => {
+  function handleChatPaneMessage(msg: any) {
     console.log("[ChatPane] Received message:", msg.type);
-    
+      
     // Handle regular chat messages
     if (msg.type === "chat:message") {
       if (msg.userId !== userId) {
@@ -64,16 +65,23 @@ export default function ChatPane() {
         const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
         window.location.href = dashboardUrl;
     }
-  });
+  }
 
-  setSendMsg(() => send);
+  // Initialize WebSocket
+  useEffect(() => {
+    if (!sessionId || !userId || !token) return;
+    //console.log("[ChatPane] Connecting to:", { sessionId, userId, token });
+    console.log("[ChatPane] Connecting to /ws");
+    const { ws, send } = connectCollabSocket(sessionId, userId, token, handleChatPaneMessage, "ChatPane");
 
-  // 🔒 Cleanup: close socket when component unmounts or deps change
-  return () => {
-    console.log("❌ Closing collab socket...");
-    ws.close();
-  };
-}, [sessionId, userId]); // Don't include currentLanguage - it causes WebSocket to reconnect
+    setSendMsg(() => send);
+
+    // 🔒 Cleanup: close socket when component unmounts or deps change
+    return () => {
+      console.log("[ChatPane] Closing collab socket...");
+      ws.close();
+    };
+  }, [sessionId, userId, token]); // Don't include currentLanguage - it causes WebSocket to reconnect
 
 
   // Handle sending a regular chat message

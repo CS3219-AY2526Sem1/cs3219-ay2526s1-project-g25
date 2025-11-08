@@ -3,6 +3,7 @@ import { applyOp } from "../services/documentService.js";
 import { touchPresence } from "../services/presenceService.js";
 import { generateAIResponse } from "../services/aiService.js";
 import { z } from "zod";
+import { verifyCollabTokenOrThrow } from "./tokenHelper.js";
 
 // WebSocket rooms (in-memory connection maps; lightweight, ephemeral)
 const wsRooms = new Map();
@@ -28,18 +29,37 @@ export function initGateway(wss) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     let sessionId = url.searchParams.get("sessionId") || "";
     let userId = url.searchParams.get("userId") || "";
+    let token = url.searchParams.get("token") || "";
 
     console.log("[WS] Extracted params - sessionId:", sessionId, "userId:", userId);
 
-    if (!sessionId) sessionId = String(req.headers["x-session-id"] || "");
-    if (!userId) userId = String(req.headers["x-user-id"] || "");
+    // if (!sessionId) sessionId = String(req.headers["x-session-id"] || "");
+    // if (!userId) userId = String(req.headers["x-user-id"] || "");
+    // if (!token) token = String(req.headers["x-auth-token"] || "");
 
-    if (!sessionId || !userId) {
-      console.log("[WS] Missing params - closing connection");
-      return ws.close(1008, "missing params");
+    // if (!sessionId || !userId) {
+    //   console.log("[WS] Missing params - closing connection");
+    //   return ws.close(1008, "missing params");
+    // } else if (!token) {
+    //   console.log("[WS] Missing auth token - closing connection");
+    //   return ws.close(1008, "missing auth token");
+    // }
+
+    if (!sessionId) {
+      sessionId = String(req.headers["x-session-id"] || "");
+      console.log("[WS] Missing sessionId - closing connection");
+      return ws.close(1008, "missing sessionId");
+    } else if (!userId) {
+      userId = String(req.headers["x-user-id"] || "");
+      console.log("[WS] Missing userId - closing connection");
+      return ws.close(1008, "missing userId");
+    } else if (!token) {
+      token = String(req.headers["x-auth-token"] || "");
+      console.log("[WS] Missing auth token - closing connection");
+      return ws.close(1008, "missing auth token");
     }
 
-    // Authorization check
+    // User authorization check
     try {
       console.log("[WS] Checking authorization for user:", userId, "session:", sessionId);
       const allowed = await redisRepo.sIsMember(
@@ -67,11 +87,23 @@ export function initGateway(wss) {
       return ws.close(1011, "auth check error");
     }
 
+    // Token authorization check
+    try {
+      const dec = verifyCollabTokenOrThrow(token, sessionId);
+      if (dec.userId) userId = String(dec.userId);
+      ws.isAuthenticated = true;
+      ws.userId = userId;
+    } catch (err) {
+      console.warn("[WS] JWT verification failed:", err);
+      return ws.close(1008, "invalid token");
+    }
+
     if (!wsRooms.has(sessionId)) wsRooms.set(sessionId, new Set());
     wsRooms.get(sessionId).add(ws);
 
     console.log(`[WS] ${userId} connected to ${sessionId}`);
 
+    // Send initial state
     const doc = (await redisRepo.getJson(`collab:document:${sessionId}`)) || { version: 0, text: "" };
     const chat = (await redisRepo.getList(`collab:chat:${sessionId}`)) || [];
     const aiChat = (await redisRepo.getList(`collab:ai-chat:${sessionId}`)) || [];
