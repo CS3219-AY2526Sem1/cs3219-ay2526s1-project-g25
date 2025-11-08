@@ -219,9 +219,15 @@ export default function CodePane({ question }: { question: any }) {
             if (typeof evt.data === "string") {
                 try {
                     const msg = JSON.parse(evt.data);
+                    // if (msg.type === "session:end") {
+                    //     console.log("[CodePane] Received session:end via YJS WebSocket");
+                    //     window.dispatchEvent(new CustomEvent('session-end', { detail: msg }));
+                    // }
                     if (msg.type === "session:end") {
                         console.log("[CodePane] Received session:end via YJS WebSocket");
-                        window.dispatchEvent(new CustomEvent('session-end', { detail: msg }));
+                        if ((window as any).__sessionEndDispatched) return;
+                        (window as any).__sessionEndDispatched = true;
+                        window.dispatchEvent(new CustomEvent("session-end", { detail: msg }));
                     }
                 } catch (e) {
                     // Not JSON, ignore

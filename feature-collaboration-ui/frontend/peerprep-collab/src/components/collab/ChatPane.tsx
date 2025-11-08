@@ -41,11 +41,18 @@ export default function ChatPane() {
       setIsAILoading(false);
     }
     
-    // Handle session end
+    // // Handle session end
+    // if (msg.type === "session:end") {
+    //   console.log("[ChatPane] Session ended, broadcasting to page");
+    //   // Trigger session end event that the collab page listens to
+    //   window.dispatchEvent(new CustomEvent('session-end', { detail: msg }));
+    // }
+
+    // Handle session end (dispatch only, no alert/redirect)
     if (msg.type === "session:end") {
-      console.log("[ChatPane] Session ended, broadcasting to page");
-      // Trigger session end event that the collab page listens to
-      window.dispatchEvent(new CustomEvent('session-end', { detail: msg }));
+      if ((window as any).__sessionEndDispatched) return;
+      (window as any).__sessionEndDispatched = true;
+      window.dispatchEvent(new CustomEvent("session-end", { detail: msg }));
     }
 
     // Initialize chat history
@@ -60,11 +67,11 @@ export default function ChatPane() {
       }
     }
     
-    if (msg.type === "session:end") {
-        alert("Your partner has ended the session. Returning to dashboard...");
-        const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
-        window.location.href = dashboardUrl;
-    }
+    // if (msg.type === "session:end") {
+    //     alert("Your partner has ended the session. Returning to dashboard...");
+    //     const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
+    //     window.location.href = dashboardUrl;
+    // }
   }
 
   // Initialize WebSocket
