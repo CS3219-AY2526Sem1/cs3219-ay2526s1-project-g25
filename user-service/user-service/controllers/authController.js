@@ -378,25 +378,36 @@ export const resendVerification = async (req, res) => {
     const verificationToken = jwt.sign({ userId: user.id, type: 'verify' }, ACCESS_SECRET, { expiresIn: '30m' })
     const verificationUrl = `${FRONTEND_URL}/auth/verify?token=${verificationToken}`
 
-
     // Try sending via Supabase auth APIs
     let sendError = null
-    try {
-      if (supabase.auth && typeof supabase.auth.resend === 'function') {
-        const result = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: verificationUrl } })
-        if (result?.error) sendError = result.error
-        else console.log(`[resendVerification] Supabase resend requested for ${email}`)
-      } else if (supabase.auth?.admin && typeof supabase.auth.admin.generateLink === 'function') {
-        const { error: linkError } = await supabase.auth.admin.generateLink('signup', email, { redirectTo: verificationUrl, data: { verification_token: verificationToken } })
-        if (linkError) sendError = linkError
-        else console.log(`[resendVerification] Supabase generated verification link for ${email}`)
-      } else {
-        // No supabase mail functionality available; log link for operators
-        console.log('[resendVerification] No Supabase mail API available. Verification URL:', verificationUrl)
+    
+    // Skip email sending in test environment
+    if (process.env.NODE_ENV !== 'test') {
+      try {
+        
+        const { error: mailError } = await supabase.auth.signUp({
+          email,
+          password: user.password_hash,
+          options: { 
+            emailRedirectTo: verificationUrl,
+            data: {
+              username: user.username,
+              verification_token: verificationToken
+            }
+          }
+        })
+
+        if (mailError) {
+          sendError = mailError
+          console.error('[resendVerification] Supabase signUp error:', mailError)
+        } else {
+          console.log(`[resendVerification] Verification email sent to ${email} via Supabase`)
+          console.log(`[resendVerification] Redirect URL: ${verificationUrl}`)
+        }
+      } catch (err) {
+        sendError = err
+        console.error('[resendVerification] Error while sending verification:', err)
       }
-    } catch (err) {
-      sendError = err
-      console.error('[resendVerification] Error while sending verification:', err)
     }
 
     // Provide friendly message to user
