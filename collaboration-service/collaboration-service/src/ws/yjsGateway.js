@@ -1,6 +1,7 @@
 // src/ws/yjsGateway.js
 import * as Y from "yjs";
 import { redisRepo } from "../repos/redisRepo.js";
+import { verifyCollabTokenOrThrow } from "./tokenHelper.js";
 
 /**
  * Rooms: sessionId -> { doc: Y.Doc, conns: Set<WebSocket> }
@@ -95,8 +96,22 @@ export function initYjsGateway(yws) {
   yws.on("connection", async (ws, req) => {
     console.log("[YJS Gateway] New connection:", req.url);
     const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
-    const sessionId = searchParams.get("sessionId") || "default";
-    const userId = searchParams.get("userId") || "anon";
+    const sessionId = searchParams.get("sessionId") || "";
+    let userId = searchParams.get("userId") || "";
+    const token = searchParams.get("token") || "";
+    
+    // Token authorization check
+    try {
+      if (!token) throw new Error("missing token");
+      const dec = verifyCollabTokenOrThrow(token, sessionId);
+      if (dec.userId) userId = String(dec.userId);
+      ws.isAuthenticated = true;
+      ws.userId = userId;
+    } catch (err) {
+      console.warn("[YJS Gateway] JWT verification failed:", err.message);
+      ws.close(1008, "Unauthorized");
+      return;
+    }
 
     const room = await getRoom(sessionId);
     room.conns.add(ws);

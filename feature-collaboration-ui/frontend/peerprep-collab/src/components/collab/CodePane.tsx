@@ -6,8 +6,9 @@ import { Play, Code2, TestTube, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { executeCode } from "@/lib/collabApi";
 import { useCollabStore } from "@/lib/collabStore";
-import { getParams } from "@/lib/helpers";
-import {connectCollabSocket} from "@/lib/collabSocket";
+import { getParams, getSessionIdFromUrl } from "@/lib/helpers";
+import { getUserIdFromToken, readCollabToken } from "@/lib/tokenHelper";
+import { connectCollabSocket } from "@/lib/collabSocket";
 import { diffChars } from "diff";
 import MonacoEditor from "./MonacoEditor";
 
@@ -33,7 +34,9 @@ export default function CodePane({ question }: { question: any }) {
         setCurrentLanguage 
     } = useCollabStore();
 
-    const { userId, sessionId } = getParams();
+    const sessionId = getSessionIdFromUrl() || "";
+    const userId = getUserIdFromToken() || "";
+    const token = readCollabToken() || "";
 
     const yDocRef = useRef<Y.Doc | null>(null);
     const yTextRef = useRef<Y.Text | null>(null);
@@ -104,107 +107,93 @@ export default function CodePane({ question }: { question: any }) {
         { value: 'sql', label: 'SQL' },
     ];
 
+    function handleCodePaneMessage(msg: any) {
+        console.log("[CodePane] Received message:", msg.type, msg);
 
+        // Handle test execution results - ALWAYS process these
+        if (msg.type === "run:testResults") {
+            console.log("[CodePane] Test results received:", msg.testResults);
+            setTestExecutionResults(msg.testResults.results);
+            setIsExecutingTests(false);
+            
+            // Clear timeout if it exists
+            if ((window as any).testTimeoutId) {
+                clearTimeout((window as any).testTimeoutId);
+                (window as any).testTimeoutId = null;
+            }
+            return;
+        }
 
+        // Handle code execution results (both regular and custom input) - ALWAYS process these
+        if (msg.type === "run:result") {
+            console.log("[CodePane] Code execution result:", msg.run);
+            
+            // Check if this is a custom input execution (has stdin)
+            if (msg.run.stdin && msg.run.stdin.trim() !== "") {
+                console.log("[CodePane] Custom input execution result:", msg.run);
+                setOutput(`Custom Input: ${msg.run.stdin}\nOutput: ${msg.run.output || msg.run.error || "[NO OUTPUT]"}`);
+            } else {
+                console.log("[CodePane] Regular code execution result:", msg.run);
+                setOutput(msg.run.output || msg.run.error || "[NO OUTPUT]");
+            }
+            return;
+        }
+
+        // Handle custom input updates from other users - ALWAYS process these
+        if (msg.type === "customInput:update") {
+            console.log("[CodePane] Custom input update received:", msg.customInput);
+            // Don't update if it's from the current user
+            if (msg.userId !== userId) {
+                setCustomInput(msg.customInput);
+                setCustomInputUser(msg.userId);
+            }
+            return;
+        }
+
+        // Handle language updates from other users - ALWAYS process these
+        if (msg.type === "language:update") {
+            console.log("[CodePane] Language update received:", msg.language);
+            // Don't update if it's from the current user
+            if (msg.userId !== userId) {
+                setLanguage(msg.language);
+                setCurrentLanguage(msg.language); // Update global store
+                // DON'T clear code - let users keep their work even if language changes
+                // The YJS document will handle the code persistence
+                setLanguageChangeUser(msg.userId);
+                
+                // Clear the indicator after 3 seconds
+                setTimeout(() => {
+                    setLanguageChangeUser(null);
+                }, 3000);
+            }
+            return;
+        }
+    }
+
+    // Initialize collaboration WebSocket
     useEffect(() => {
+        if (!sessionId || !userId || !token) return;
+
         setCurrentLanguage(language);
 
-        const { send, executeTestCases } = connectCollabSocket(sessionId, userId, (msg) => {
-            console.log("[CodePane] Received message:", msg.type, msg);
-
-            // Handle test execution results - ALWAYS process these
-            if (msg.type === "run:testResults") {
-                console.log("[CodePane] Test results received:", msg.testResults);
-                setTestExecutionResults(msg.testResults.results);
-                setIsExecutingTests(false);
-                
-                // Clear timeout if it exists
-                if ((window as any).testTimeoutId) {
-                    clearTimeout((window as any).testTimeoutId);
-                    (window as any).testTimeoutId = null;
-                }
-                return;
-            }
-
-            // Handle code execution results (both regular and custom input) - ALWAYS process these
-            if (msg.type === "run:result") {
-                console.log("[CodePane] Code execution result:", msg.run);
-                
-                // Check if this is a custom input execution (has stdin)
-                if (msg.run.stdin && msg.run.stdin.trim() !== "") {
-                    console.log("[CodePane] Custom input execution result:", msg.run);
-                    setOutput(`Custom Input: ${msg.run.stdin}\nOutput: ${msg.run.output || msg.run.error || "[NO OUTPUT]"}`);
-                } else {
-                    console.log("[CodePane] Regular code execution result:", msg.run);
-                    setOutput(msg.run.output || msg.run.error || "[NO OUTPUT]");
-                }
-                return;
-            }
-
-            // Handle custom input updates from other users - ALWAYS process these
-            if (msg.type === "customInput:update") {
-                console.log("[CodePane] Custom input update received:", msg.customInput);
-                // Don't update if it's from the current user
-                if (msg.userId !== userId) {
-                    setCustomInput(msg.customInput);
-                    setCustomInputUser(msg.userId);
-                }
-                return;
-            }
-
-            // Handle language updates from other users - ALWAYS process these
-            if (msg.type === "language:update") {
-                console.log("[CodePane] Language update received:", msg.language);
-                // Don't update if it's from the current user
-                if (msg.userId !== userId) {
-                    setLanguage(msg.language);
-                    setCurrentLanguage(msg.language); // Update global store
-                    // DON'T clear code - let users keep their work even if language changes
-                    // The YJS document will handle the code persistence
-                    setLanguageChangeUser(msg.userId);
-                    
-                    // Clear the indicator after 3 seconds
-                    setTimeout(() => {
-                        setLanguageChangeUser(null);
-                    }, 3000);
-                }
-                return;
-            }
-
-        //     // Handle document initialization
-        //     if (msg.type === "init") {
-        //         console.log("[CodePane] Received init message:", msg.document);
-        //         if (!isDocInitialized) {
-        //             console.log("[CodePane] Initializing with document content:", msg.document.text);
-        //             setCode(msg.document.text || "");
-        //             setDocVersion(msg.document.version);
-        //             setDocInitialized(true);
-        //         }
-        //         return;
-        //     }
-
-        //     // Handle document sync updates (for real-time collaboration)
-        //     if (msg.type === "doc:applied" || msg.type === "doc:resync") {
-        //         console.log("[CodePane] Document sync update:", msg.document);
-        //         // We don't need to reload if the change is caused by us
-        //         if (msg?.by === userId) { 
-        //             console.log("[CodePane] Ignoring our own change");
-        //             return; 
-        //         }
-                
-        //         setCode(msg.document.text);
-        //         setDocVersion(msg.document.version);
-        //         return;
-        //     }
-            }
-        );
+        //console.log("[CodePane] Connecting to:", { sessionId, userId, token });
+        console.log("[CodePane] Connecting to /ws");
+        const { ws, send, executeTestCases } = connectCollabSocket(sessionId, userId, token, handleCodePaneMessage, "CodePane");
 
         setSendMsg(() => send);
         setExecuteTestCases(() => executeTestCases);
-    }, [language, sessionId, userId, setCurrentLanguage, setIsExecutingTests, setTestExecutionResults, setOutput]);
 
+        // ✅ cleanup: close control socket if this effect re-runs or unmounts
+        return () => {
+            try {
+            console.log("[CodePane] Closing collab socket...");
+            ws?.close(1000, "CodePane cleanup");
+            } catch {}
+        };
+    }, [language, sessionId, userId, token, setCurrentLanguage, setIsExecutingTests, setTestExecutionResults, setOutput]);
+
+    // Initialize Yjs document and WebSocket for real-time code collaboration
     useEffect(() => {
-        if (!sessionId || !userId) return;
         if (typeof window === "undefined") return; // SSR guard
 
         const ydoc = new Y.Doc();
@@ -213,12 +202,17 @@ export default function CodePane({ question }: { question: any }) {
         yTextRef.current = ytext;
 
         const base = process.env.NEXT_PUBLIC_YJS_WS_URL ?? "ws://localhost:3004/ws-yjs";
-        const wsUrl = `${base}?${new URLSearchParams({ sessionId, userId })}`;
+        const wsUrl = `${base}?${new URLSearchParams({ sessionId, userId, token })}`;
         const ws = new window.WebSocket(wsUrl);
         ws.binaryType = "arraybuffer";
         wsRef.current = ws;
 
-        ws.onopen = () => console.log("[Yjs] Connected", wsUrl);
+        //ws.onopen = () => console.log("[Yjs] Connected", wsUrl);
+        ws.onopen = () => console.log("[CodePane] WebSocket connected to /ws-yjs ✅");
+
+        ws.onerror = (err) => console.error("[CodePane] WebSocket error on /ws-yjs: ", err);
+
+        ws.onclose = (evt) => console.log("[CodePane] YJS WebSocket closed:", evt.code, evt.reason);
 
         ws.onmessage = (evt) => {
             // Handle string messages (e.g., session:end)
@@ -258,7 +252,7 @@ export default function CodePane({ question }: { question: any }) {
             yDocRef.current = null;
             yTextRef.current = null;
         };
-    }, [sessionId, userId]);
+    }, [sessionId, userId, token]);
 
 
     const handleCodeChanged = (newCode: string) => {

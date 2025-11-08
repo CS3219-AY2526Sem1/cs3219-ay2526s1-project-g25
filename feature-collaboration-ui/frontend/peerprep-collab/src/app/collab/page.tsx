@@ -14,6 +14,9 @@ import {
   PanelResizeHandle,
 } from "react-resizable-panels";
 
+const USER_SVC =
+  process.env.NEXT_PUBLIC_USER_SERVICE_URL || "http://localhost:3001";
+
 function CollabPage() {
   const params = useSearchParams();
   const router = useRouter();
@@ -25,24 +28,107 @@ function CollabPage() {
   const [isClient, setIsClient] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const [sendMsg, setSendMsg] = useState<(msg: any) => void>(() => () => {});
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      // read temp key
+      const url = new URL(window.location.href);
+      const temp = url.searchParams.get("temp") || url.searchParams.get("t");
+
+      // if we already have a collab token (refresh), reuse it
+      const existingCollabToken = sessionStorage.getItem("collabToken");
+      if (!temp && existingCollabToken) {
+        const claims = parseJwt<{ userId: string }>(existingCollabToken);
+        if (claims?.userId) setUserId(String(claims.userId));
+        setReady(true);
+        return;
+      }
+
+      if (!temp) {
+        alert("Your session link expired. Please rejoin from Matching.");
+        window.location.href =
+          (process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000") +
+          "/dashboard";
+        return;
+      }
+
+      try {
+        // redeem temp → short-lived collab JWT
+        const res = await fetch(`${USER_SVC}/auth/redeem`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tempKey: temp,
+            audience: "collab",
+            sessionId, // bind the token to this session if your backend checks it
+          }),
+        });
+
+        if (!res.ok) {
+          alert("This session link has expired. Please rejoin from Matching.");
+          window.location.href =
+            (process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000") +
+            "/dashboard";
+          return;
+        }
+
+        const { token } = await res.json();
+        if (!token) throw new Error("No token returned");
+
+        // store short-lived collab JWT in sessionStorage (NOT in URL)
+        sessionStorage.setItem("collabToken", token);
+
+        // set userId from claims (or keep your param fallback)
+        const claims = parseJwt<{ userId: string }>(token);
+        if (claims?.userId) setUserId(String(claims.userId));
+
+        // clean URL: remove temp param so it can’t be reused/copied
+        url.searchParams.delete("temp");
+        url.searchParams.delete("t");
+        window.history.replaceState({}, "", url.toString());
+
+        setReady(true);
+      } catch (e) {
+        console.error("[CollabPage] redeem failed:", e);
+        alert("Could not authenticate collaboration session. Please rejoin from Matching.");
+        window.location.href =
+          (process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000") +
+          "/dashboard";
+      }
+    })();
+  }, [sessionId]);
 
   /* ----------  WebSocket  ---------- */
   useEffect(() => {
-    if (!sessionId || !userId) return;
-    const baseUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004";
-    const wsUrl = `${baseUrl}/ws?sessionId=${sessionId}&userId=${userId}`;
-    console.log("[CollabPage] Connecting to WebSocket:", wsUrl);
-    const ws = new WebSocket(wsUrl);
+    if (!ready || !sessionId || !userId) return;
+
+    const token = sessionStorage.getItem("collabToken");
+    if (!token) {
+      console.error("[CollabPage] Missing collabToken for WS");
+      return;
+    }
+
+    const wsBase =
+      process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004";
+    const safeWsBase = wsBase.replace(/\/+$/, "");
+    const url = new URL(/\/ws$/.test(safeWsBase) ? safeWsBase : `${safeWsBase}/ws`);
+    url.searchParams.set("sessionId", sessionId);
+    url.searchParams.set("userId", userId);
+    url.searchParams.set("token", token); // ← add the short-lived JWT
+
+    console.log("[CollabPage] Connecting to /ws");
+    const ws = new WebSocket(url.toString());
     socketRef.current = ws;
 
     ws.onopen = () => {
-      console.log("[CollabPage] WebSocket connected to /ws");
+      console.log("[CollabPage] WebSocket connected to /ws ✅");
     };
-    
+
     ws.onerror = (error) => {
       console.error("[CollabPage] WebSocket error:", error);
     };
-    
+
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       console.log("[CollabPage] Received message:", msg.type);
@@ -57,88 +143,66 @@ function CollabPage() {
         }, 400);
       }
     };
-    
+
     ws.onclose = (event) => {
       console.log("[CollabPage] WebSocket closed:", event.code, event.reason);
     };
-    
-    // Listen for session end from other components
-    const handleSessionEnd = (e: CustomEvent) => {
-      const msg = e.detail;
-      console.log("[CollabPage] Session end event received:", msg);
-      document.body.style.transition = "opacity 0.4s ease";
-      document.body.style.opacity = "0";
-      setTimeout(() => {
-        const dashboardUrl =
-          process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard";
-        window.location.href = dashboardUrl;
-      }, 400);
-    };
-    
-    window.addEventListener('session-end', handleSessionEnd as EventListener);
 
     const sendFunction = (m: any) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m));
       else ws.addEventListener("open", () => ws.send(JSON.stringify(m)), { once: true });
     };
     setSendMsg(() => sendFunction);
-    
+
     return () => {
-      ws.close();
-      window.removeEventListener('session-end', handleSessionEnd as EventListener);
+      try { ws.close(); } catch {}
     };
-  }, [sessionId, userId, router]);
+  }, [ready, sessionId, userId]);
 
   /* ----------  Fetch Question  ---------- */
   useEffect(() => {
-    // Mark as client-side rendered
+    // client-only
     setIsClient(true);
-    
-    // Get user authentication - check URL params first, then localStorage
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get("token");
-    const urlUserIdFromParams = urlParams.get("userId");
-    
-    console.log('[CollabPage] URL params:', { urlToken: urlToken ? 'present' : 'missing', urlUserIdFromParams });
-    
-    if (urlToken) {
-      // Token passed via URL - store it and use it
-      console.log('[CollabPage] Using token from URL');
-      localStorage.setItem("accessToken", urlToken);
-      const payload = parseJwt<{ userId: number }>(urlToken);
-      setUserId(payload?.userId ? String(payload.userId) : urlUserIdFromParams);
-    } else if (isAuthenticated()) {
-      // No URL token, check localStorage
-      console.log('[CollabPage] Using token from localStorage');
-      const token = getAccessToken();
-      if (token) {
-        const payload = parseJwt<{ userId: number }>(token);
-        setUserId(payload?.userId ? String(payload.userId) : null);
-      }
-    } else if (urlUserIdFromParams) {
-      // Fallback to URL userId if no token
-      console.log('[CollabPage] Using userId from URL as fallback');
-      setUserId(urlUserIdFromParams);
+
+    // ✅ Source userId from the redeemed short-lived collab token (Step 4)
+    const collabToken = sessionStorage.getItem("collabToken");
+    if (collabToken) {
+      const payload = parseJwt<{ userId: number }>(collabToken);
+      setUserId(payload?.userId ? String(payload.userId) : paramUserId);
+    } else if (paramUserId) {
+      // soft fallback if token missing (e.g., before redeem finishes)
+      setUserId(paramUserId);
     } else {
-      console.log('[CollabPage] No authentication found');
+      console.log("[CollabPage] No authentication found (no collabToken, no userId param).");
     }
 
     if (!sessionId) return;
+
     (async () => {
       try {
-        // Fetch session info from Collaboration backend
-        const baseUrl = process.env.NEXT_PUBLIC_COLLAB_BASE_URL || 'http://localhost:3004';
-        console.log('[CollabPage] Fetching session with baseUrl:', baseUrl);
-        const res = await fetch(`${baseUrl}/sessions/${sessionId}`);
+        // Fetch session info from Collaboration backend (same as before)
+        const baseUrl =
+          process.env.NEXT_PUBLIC_COLLAB_BASE_URL || "http://localhost:3004";
+        console.log("[CollabPage] Fetching session with baseUrl:", baseUrl);
+        const token = sessionStorage.getItem("collabToken"); // short-lived JWT from /auth/redeem
+        const res = await fetch(`${baseUrl}/sessions/${sessionId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         const data = await res.json();
 
         if (!data.session) throw new Error("No session found");
         const qid = data.session.questionId;
 
-        // Fetch question details from Question Service
-        const questionBaseUrl = process.env.NEXT_PUBLIC_QUESTION_BASE_URL || 'http://localhost:5050';
-        console.log('[CollabPage] Fetching question with baseUrl:', questionBaseUrl);
-        const qres = await fetch(`${questionBaseUrl}/questions/${qid}`);
+        // Fetch question details from Question Service (same as before)
+        const questionBaseUrl =
+          process.env.NEXT_PUBLIC_QUESTION_BASE_URL || "http://localhost:5050";
+        console.log(
+          "[CollabPage] Fetching question with baseUrl:",
+          questionBaseUrl
+        );
+        const qres = await fetch(`${questionBaseUrl}/questions/${qid}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         const qdata = await qres.json();
 
         setQuestion(qdata);
@@ -148,7 +212,8 @@ function CollabPage() {
         setLoading(false);
       }
     })();
-  }, [sessionId]);
+  }, [sessionId, paramUserId]);
+
 
   // Show loading state during hydration
   if (!isClient) {
