@@ -61,9 +61,14 @@ export default function ChatPane() {
       if (Array.isArray(msg.chat)) {
         setMessages(msg.chat);
       }
-      if (Array.isArray(msg.aiChat)) {
-        console.log("[ChatPane] Initializing AI chat history:", msg.aiChat);
-        setAIMessages(msg.aiChat);
+      if (Array.isArray(msg.aiChat) || Array.isArray(msg.aiPrivate)) {
+        const combined = [
+          ...(Array.isArray(msg.aiChat) ? msg.aiChat : []),
+          ...(Array.isArray(msg.aiPrivate) ? msg.aiPrivate : []),
+        ];
+        combined.sort((a: any, b: any) => (a.ts || 0) - (b.ts || 0));
+        console.log("[ChatPane] Initializing AI chat history:", combined);
+        setAIMessages(combined);
       }
     }
     
@@ -105,7 +110,7 @@ export default function ChatPane() {
     setIsAILoading(true)
     
     // Add user message to AI chat
-    const userMsg = { userId, text, ts: Date.now(), type: "user" }
+    const userMsg = { userId, text, ts: Date.now(), type: "ai-user" }
     setAIMessages((prev) => [...prev, userMsg])
 
     // Send to backend via WebSocket
@@ -116,7 +121,7 @@ export default function ChatPane() {
   async function handleGetHint() {
     setIsAILoading(true)
     try {
-      const result = await getHint(sessionId)
+      const result = await getHint(sessionId, userId)
       setIsAILoading(false)
 
       if (result.success && result.hint) {
@@ -156,7 +161,7 @@ export default function ChatPane() {
       // Get current language from store at the time of analysis
       const currentLanguage = useCollabStore.getState().currentLanguage
       console.log(`[ChatPane] Analyzing code with language: ${currentLanguage}`)
-      const result = await analyzeCode(sessionId, undefined, currentLanguage)
+      const result = await analyzeCode(sessionId, undefined, currentLanguage, userId)
       setIsAILoading(false)
 
       if (result.success && result.analysis) {

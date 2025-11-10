@@ -120,7 +120,7 @@ IMPORTANT GUIDELINES:
  * @param {string} language - Programming language
  * @returns {Promise<object>} Analysis result
  */
-export async function analyzeCode(sessionId, code, language = "python") {
+export async function analyzeCode(sessionId, code, language = "python", question = null) {
   try {
     if (!apiKey) {
       throw new Error("AI service is not configured");
@@ -130,7 +130,7 @@ export async function analyzeCode(sessionId, code, language = "python") {
 
     console.log(`[AI Service] Analyzing code in language: ${language}`);
     
-    const prompt = `You are analyzing ${language.toUpperCase()} code. The code provided is definitely ${language} code.
+    let prompt = `You are analyzing ${language.toUpperCase()} code. The code provided is definitely ${language} code.
 
 Analyze the following ${language} code and provide:
 1. Code quality assessment (1-10)
@@ -146,6 +146,17 @@ ${code}
 \`\`\`
 
 Please provide your analysis in a structured, concise format.`;
+
+    if (question) {
+      prompt = `You are assisting with the following interview question:
+Title: ${question.title || "Unknown"}
+Difficulty: ${question.difficulty || "Unknown"}
+Topic: ${question.topic || "General"}
+Description:
+${question.description || "N/A"}
+
+` + prompt;
+    }
 
     const result = await model.generateContent(prompt);
     const analysis = result.response.text();

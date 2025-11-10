@@ -9,13 +9,35 @@ import axios from "axios";
 /**
  * Validation schema for session creation
  */
-const createSessionSchema = z.object({
-  userA: z.string().min(1),
-  userB: z.string().min(1),
-  topic: z.string().min(1),
-  difficulty: z.string().min(1),
-  questionId: z.string().min(1),
-});
+const questionDetailsSchema = z
+  .object({
+    id: z.string().optional(),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    difficulty: z.string().optional(),
+    topic: z.string().optional(),
+    examples: z.any().optional(),
+    constraints: z.any().optional(),
+  })
+  .passthrough()
+  .optional();
+
+const createSessionSchema = z
+  .object({
+    userA: z.string().min(1),
+    userB: z.string().min(1),
+    userAName: z.string().optional(),
+    userBName: z.string().optional(),
+    topic: z.string().min(1),
+    difficulty: z.string().min(1),
+    questionId: z.string().min(1),
+    questionTitle: z.string().optional(),
+    questionDescription: z.string().optional(),
+    questionDifficulty: z.string().optional(),
+    questionTopic: z.string().optional(),
+    question: questionDetailsSchema,
+  })
+  .passthrough();
 
 /**
  * Create a new session and store in Redis
@@ -26,7 +48,25 @@ export const createSession = async (req, res) => {
     if (!parsed.success)
       return res.status(400).json({ error: parsed.error.issues });
 
-    const s = await makeSession(parsed.data);
+    const payload = parsed.data;
+    const questionDetails = payload.question && typeof payload.question === "object" ? payload.question : null;
+
+    const sessionData = {
+      userA: payload.userA,
+      userB: payload.userB,
+      userAName: payload.userAName ?? undefined,
+      userBName: payload.userBName ?? undefined,
+      topic: payload.topic,
+      difficulty: payload.difficulty,
+      questionId: payload.questionId,
+      questionTitle: payload.questionTitle ?? questionDetails?.title ?? payload.topic,
+      questionDescription: payload.questionDescription ?? questionDetails?.description ?? "",
+      questionDifficulty: payload.questionDifficulty ?? questionDetails?.difficulty ?? payload.difficulty,
+      questionTopic: payload.questionTopic ?? questionDetails?.topic ?? payload.topic,
+      question: questionDetails ?? undefined,
+    };
+
+    const s = await makeSession(sessionData);
 
     // store participants
     await redisRepo.sAdd(`collab:session:${s.id}:participants`, s.userA, s.userB);

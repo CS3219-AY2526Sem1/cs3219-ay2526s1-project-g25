@@ -64,7 +64,8 @@ export async function sendAIMessage(
 export async function analyzeCode(
   sessionId: string,
   code?: string,
-  language?: string
+  language?: string,
+  userId?: string
 ): Promise<AIAnalysisResult> {
   try {
     const response = await fetch(`${AI_BASE_URL}/sessions/${sessionId}/ai/analyze`, {
@@ -72,7 +73,7 @@ export async function analyzeCode(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ code, language }),
+      body: JSON.stringify({ code, language, userId }),
     });
 
     const data = await response.json();
@@ -95,13 +96,17 @@ export async function analyzeCode(
 /**
  * Get a hint for the problem
  */
-export async function getHint(sessionId: string): Promise<{ success: boolean; hint?: string; error?: string }> {
+export async function getHint(
+  sessionId: string,
+  userId?: string
+): Promise<{ success: boolean; hint?: string; error?: string }> {
   try {
     const response = await fetch(`${AI_BASE_URL}/sessions/${sessionId}/ai/hint`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({ userId }),
     });
 
     const data = await response.json();

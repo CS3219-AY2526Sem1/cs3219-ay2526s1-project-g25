@@ -24,7 +24,8 @@ export default function CodePane({ question }: { question: any }) {
     const [executeTestCases, setExecuteTestCases] = useState<(language: string, testCases: any[]) => void>(() => () => {})
     const [customInput, setCustomInput] = useState("")
     const [customInputUser, setCustomInputUser] = useState<string | null>(null)
-    const [languageChangeUser, setLanguageChangeUser] = useState<string | null>(null)
+    const [languageChangeUserId, setLanguageChangeUserId] = useState<string | null>(null)
+    const [languageChangeUsername, setLanguageChangeUsername] = useState<string | null>(null)
     const { 
         setOutput, 
         setTests, 
@@ -159,11 +160,13 @@ export default function CodePane({ question }: { question: any }) {
                 setCurrentLanguage(msg.language); // Update global store
                 // DON'T clear code - let users keep their work even if language changes
                 // The YJS document will handle the code persistence
-                setLanguageChangeUser(msg.userId);
+                setLanguageChangeUserId(msg.userId);
+                setLanguageChangeUsername(msg.username ?? null);
                 
                 // Clear the indicator after 3 seconds
                 setTimeout(() => {
-                    setLanguageChangeUser(null);
+                    setLanguageChangeUserId(null);
+                    setLanguageChangeUsername(null);
                 }, 3000);
             }
             return;
@@ -195,6 +198,10 @@ export default function CodePane({ question }: { question: any }) {
     // Initialize Yjs document and WebSocket for real-time code collaboration
     useEffect(() => {
         if (typeof window === "undefined") return; // SSR guard
+        if (!sessionId || !userId || !token) {
+            console.warn("[CodePane] Skipping YJS connection - missing sessionId/userId/token");
+            return;
+        }
 
         const ydoc = new Y.Doc();
         const ytext = ydoc.getText("code");
@@ -511,9 +518,9 @@ export default function CodePane({ question }: { question: any }) {
                            </option>
                        ))}
                    </select>
-                   {languageChangeUser && languageChangeUser !== userId && (
+                    {languageChangeUserId && languageChangeUserId !== userId && (
                        <div className="text-xs text-blue-400">
-                           Language changed by User {languageChangeUser}
+                            Language changed by {languageChangeUsername ?? `User ${languageChangeUserId}`}
                        </div>
                    )}
                </div>

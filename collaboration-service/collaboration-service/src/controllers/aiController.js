@@ -94,6 +94,12 @@ export const analyzeSessionCode = async (req, res) => {
   try {
     const sessionId = req.params.id;
     console.log(`[AI Controller] analyzeSessionCode called for session ${sessionId}`);
+    const requestingUserId =
+      req.body.userId ||
+      req.headers["x-user-id"] ||
+      req.headers["x-userid"] ||
+      req.headers["x-user"] ||
+      null;
     
     // Verify session exists
     const session = await redisRepo.getJson(`collab:session:${sessionId}`);
@@ -120,6 +126,16 @@ export const analyzeSessionCode = async (req, res) => {
 
     console.log(`[AI Controller] Code length from Redis: ${code.length}`);
     console.log(`[AI Controller] Language for analysis: ${language}`);
+
+    const questionDetails =
+      session.question && typeof session.question === "object"
+        ? session.question
+        : {
+            title: session.questionTitle || session.topic,
+            description: session.questionDescription || "",
+            difficulty: session.questionDifficulty || session.difficulty,
+            topic: session.questionTopic || session.topic,
+          };
 
     // If no code from Redis, try to get from YJS in-memory storage
     if (!code || code.trim() === "") {
@@ -191,7 +207,21 @@ export const analyzeSessionCode = async (req, res) => {
     }
 
     // Analyze code
-    const analysis = await analyzeCode(sessionId, code, language);
+    const analysis = await analyzeCode(sessionId, code, language, questionDetails);
+
+    if (analysis?.analysis && requestingUserId) {
+      const ts = Date.now();
+      const analysisMsg = {
+        userId: "ai-assistant",
+        text: analysis.analysis,
+        ts,
+        type: "ai-analysis",
+      };
+      await redisRepo.pushToList(
+        `collab:ai-private:${sessionId}:${requestingUserId}`,
+        analysisMsg
+      );
+    }
 
     return res.status(200).json(analysis);
 
@@ -211,6 +241,12 @@ export const analyzeSessionCode = async (req, res) => {
 export const getHintForSession = async (req, res) => {
   try {
     const sessionId = req.params.id;
+    const requestingUserId =
+      req.body.userId ||
+      req.headers["x-user-id"] ||
+      req.headers["x-userid"] ||
+      req.headers["x-user"] ||
+      null;
     
     // Verify session exists
     const session = await redisRepo.getJson(`collab:session:${sessionId}`);
@@ -223,28 +259,45 @@ export const getHintForSession = async (req, res) => {
     const code = doc?.text || "";
 
     // Build question context
+    const questionSource =
+      session.question && typeof session.question === "object"
+        ? session.question
+        : null;
     const question = {
-      title: session.questionTitle || session.topic,
-      description: session.questionDescription || "",
-      difficulty: session.difficulty
+      title:
+        questionSource?.title || session.questionTitle || session.topic,
+      description:
+        questionSource?.description ||
+        session.questionDescription ||
+        "",
+      difficulty:
+        questionSource?.difficulty ||
+        session.questionDifficulty ||
+        session.difficulty,
+      topic: questionSource?.topic || session.questionTopic || session.topic,
     };
 
     // Get hint
     const hint = await getHint(sessionId, question, code);
+    const timestamp = Date.now();
 
-    // Store hint in AI chat history
-    const hintMsg = {
-      userId: "ai-assistant",
-      text: `💡 **Hint:** ${hint}`,
-      ts: Date.now(),
-      type: "ai-hint"
-    };
-    await redisRepo.pushToList(`collab:ai-chat:${sessionId}`, hintMsg);
+    if (requestingUserId) {
+      const hintMsg = {
+        userId: "ai-assistant",
+        text: `💡 **Hint:** ${hint}`,
+        ts: timestamp,
+        type: "ai-hint",
+      };
+      await redisRepo.pushToList(
+        `collab:ai-private:${sessionId}:${requestingUserId}`,
+        hintMsg
+      );
+    }
 
     return res.status(200).json({
       success: true,
       hint,
-      timestamp: hintMsg.ts
+      timestamp
     });
 
   } catch (error) {

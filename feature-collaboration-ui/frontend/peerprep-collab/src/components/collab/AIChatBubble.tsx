@@ -71,7 +71,11 @@ export default function AIChatBubble({ children, type = "ai" }: AIChatBubbleProp
                 h1: ({node, ...props}) => <h1 className="text-xl font-bold text-slate-100 mt-4 mb-2" {...props} />,
                 h2: ({node, ...props}) => <h2 className="text-lg font-bold text-slate-200 mt-3 mb-2" {...props} />,
                 h3: ({node, ...props}) => <h3 className="text-base font-bold text-slate-300 mt-2 mb-1" {...props} />,
-                p: ({node, ...props}) => <p className="mb-3 leading-relaxed break-words" {...props} />,
+                p: ({node, children, ...props}) => (
+                  <p className="mb-3 leading-relaxed break-words" {...props}>
+                    {children}
+                  </p>
+                ),
                 strong: ({node, ...props}) => <strong className="font-bold text-purple-300" {...props} />,
                 em: ({node, ...props}) => <em className="italic" {...props} />,
                 code: (
@@ -84,9 +88,7 @@ export default function AIChatBubble({ children, type = "ai" }: AIChatBubbleProp
                       {...props}
                     />
                   ) : (
-                    <pre className="bg-slate-800 p-3 rounded-lg my-3 overflow-x-auto max-w-full whitespace-pre-wrap break-words">
-                      <code className="text-slate-200 text-xs font-mono" {...props} />
-                    </pre>
+                    <code className="text-slate-200 text-xs font-mono" {...props} />
                   ),
                 pre: ({node, ...props}) => (
                   <pre className="bg-slate-800 p-3 rounded-lg text-slate-200 text-xs font-mono my-3 overflow-x-auto max-w-full whitespace-pre-wrap break-words" {...props} />

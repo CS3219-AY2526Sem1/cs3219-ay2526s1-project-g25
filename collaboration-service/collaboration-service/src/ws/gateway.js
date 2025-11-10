@@ -107,8 +107,19 @@ export function initGateway(wss) {
     const doc = (await redisRepo.getJson(`collab:document:${sessionId}`)) || { version: 0, text: "" };
     const chat = (await redisRepo.getList(`collab:chat:${sessionId}`)) || [];
     const aiChat = (await redisRepo.getList(`collab:ai-chat:${sessionId}`)) || [];
+    const privateAi =
+      (await redisRepo.getList(`collab:ai-private:${sessionId}:${userId}`)) || [];
 
-    ws.send(JSON.stringify({ type: "init", document: doc, chat, aiChat, message: "Connected successfully" }));
+    ws.send(
+      JSON.stringify({
+        type: "init",
+        document: doc,
+        chat,
+        aiChat,
+        aiPrivate: privateAi,
+        message: "Connected successfully",
+      })
+    );
 
     ws.on("message", async (buf) => {
       try {
@@ -476,6 +487,20 @@ export function initGateway(wss) {
           try {
             console.log(`[WS language:update] Broadcasting language update for session ${sessionId}, language: ${msg.language}`);
             
+            let displayName = userId;
+            try {
+              const session = await redisRepo.getJson(`collab:session:${sessionId}`);
+              if (session) {
+                if (session.userA === userId && session.userAName) {
+                  displayName = session.userAName;
+                } else if (session.userB === userId && session.userBName) {
+                  displayName = session.userBName;
+                }
+              }
+            } catch (nameErr) {
+              console.warn("[WS language:update] Failed to resolve username:", nameErr);
+            }
+
             // Store current language in Redis for AI context
             await redisRepo.setJson(`collab:language:${sessionId}`, {
               language: msg.language,
@@ -489,6 +514,7 @@ export function initGateway(wss) {
               type: "language:update",
               language: msg.language,
               userId: userId,
+              username: displayName,
               ts: Date.now(),
             };
             broadcast(sessionId, payload, null);
@@ -513,6 +539,18 @@ export function initGateway(wss) {
           try {
             console.log(`[WS] AI message received from user ${userId} in session ${sessionId}: ${msg.text?.substring(0, 50)}...`);
             
+            const promptTs = Date.now();
+            const promptMsg = {
+              userId,
+              text: msg.text,
+              ts: promptTs,
+              type: "ai-user",
+            };
+
+            // Persist and broadcast user prompt so both participants can see it
+            await redisRepo.pushToList(`collab:ai-chat:${sessionId}`, promptMsg);
+            broadcast(sessionId, promptMsg, ws);
+
             // Get current session data for context
             const session = await redisRepo.getJson(`collab:session:${sessionId}`);
             const doc = await redisRepo.getJson(`collab:document:${sessionId}`);
@@ -538,10 +576,32 @@ export function initGateway(wss) {
 
             // Add question context if available
             if (session) {
+              const questionPayload =
+                session.question ||
+                {
+                  title: session.questionTitle,
+                  description: session.questionDescription,
+                  difficulty: session.questionDifficulty || session.difficulty,
+                  topic: session.questionTopic || session.topic,
+                };
+
               context.question = {
-                title: session.questionTitle || session.topic,
-                description: session.questionDescription || "",
-                difficulty: session.difficulty
+                title:
+                  questionPayload?.title ||
+                  session.questionTitle ||
+                  session.topic,
+                description:
+                  questionPayload?.description ||
+                  session.questionDescription ||
+                  "",
+                difficulty:
+                  questionPayload?.difficulty ||
+                  session.questionDifficulty ||
+                  session.difficulty,
+                topic:
+                  questionPayload?.topic ||
+                  session.questionTopic ||
+                  session.topic,
               };
             }
 
@@ -553,7 +613,7 @@ export function initGateway(wss) {
               userId: "ai-assistant",
               text: aiResponse,
               ts: Date.now(),
-              type: "ai"
+              type: "ai",
             };
             await redisRepo.pushToList(`collab:ai-chat:${sessionId}`, aiMsg);
 
