@@ -12,12 +12,14 @@ export function initController(matchQueue) {
 export async function joinQueue(req, res) {
   try {
     const { userId, topics, difficulty } = req.body;
+    const username = req.user?.username || req.body.username || "";
     if (!userId || !topics || !difficulty) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const result = await queueRef.join({
       userId,
+      username,
       selectedTopics: topics,
       selectedDifficulty: difficulty,
     });

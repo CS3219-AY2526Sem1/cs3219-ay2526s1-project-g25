@@ -69,6 +69,12 @@ async getStatus(userId) {
   const isUserA = String(userId) === rawMatch.userA;
   const currentUserId = isUserA ? rawMatch.userA : rawMatch.userB;
   const partnerId = isUserA ? rawMatch.userB : rawMatch.userA;
+  const currentUsername = isUserA
+    ? rawMatch.userAName || rawMatch.userAUsername || rawMatch.userA
+    : rawMatch.userBName || rawMatch.userBUsername || rawMatch.userB;
+  const partnerUsername = isUserA
+    ? rawMatch.userBName || rawMatch.userBUsername || rawMatch.userB
+    : rawMatch.userAName || rawMatch.userAUsername || rawMatch.userA;
 
   // ✅ Return fully personalized payload
   return {
@@ -80,7 +86,9 @@ async getStatus(userId) {
       createdAt: rawMatch.createdAt,
       sessionId,
       userId: currentUserId,
+      username: currentUsername,
       partnerId,
+      partnerUsername,
       question,
     },
   };
@@ -206,7 +214,7 @@ async getStatus(userId) {
   /*───────────────────────────────────────────────
    *  Add user to queue
    *───────────────────────────────────────────────*/
-  async join({ userId, selectedTopics, selectedDifficulty }) {
+  async join({ userId, username = "", selectedTopics, selectedDifficulty }) {
     console.log(`[join] Attempting to join for user ${userId} with topics=${JSON.stringify(selectedTopics)}, difficulty=${selectedDifficulty}`);
     
     const existing = await redisClient.hGetAll(`waiter:${userId}`);
@@ -325,6 +333,7 @@ async getStatus(userId) {
     const enqueueAt = nowMs();
     const waiter = {
       userId,
+      username,
       selectedTopics: JSON.stringify(selectedTopics),
       selectedDifficulty,
       enqueueAt: enqueueAt.toString(),
@@ -410,16 +419,20 @@ async getStatus(userId) {
   /*───────────────────────────────────────────────
  *  Finalize match
  *───────────────────────────────────────────────*/
-async _finalizePair({ a, b, topic, difficulty }) {
+  async _finalizePair({ a, b, topic, difficulty }) {
   const matchId = genId();
   const createdAt = nowMs();
   const handshakeExpiresAt = createdAt + this.handshakeTtlMs;
 
   // Base match metadata
+  const userAName = a.username || "";
+  const userBName = b.username || "";
   const match = {
     matchId,
     userA: a.userId,
+    userAName,
     userB: b.userId,
+    userBName,
     topic,
     difficulty,
     createdAt: createdAt.toString(),
@@ -452,9 +465,16 @@ async _finalizePair({ a, b, topic, difficulty }) {
     const res = await axios.post(`${COLLAB_SERVICE_BASE_URL}/sessions`, {
       userA: a.userId,
       userB: b.userId,
+      userAName,
+      userBName,
       topic,
       difficulty,
       questionId: match.question.id,
+      questionTitle: match.question.title,
+      questionDescription: match.question.description,
+      questionDifficulty: match.question.difficulty || difficulty,
+      questionTopic: match.question.topic || topic,
+      question: match.question,
     });
     sessionId = res.data?.id || "";
     console.log(`[collab] Session created: ${sessionId}`);
