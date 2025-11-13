@@ -3,6 +3,21 @@ import toast from 'react-hot-toast';
 import apiClient from '../../services/apiClient';
 import './QuestionForm.css';
 
+// Available topics matching TopicSelector.tsx
+const AVAILABLE_TOPICS = [
+  "Arrays",
+  "LinkedList",
+  "Binary Tree",
+  "Graphs",
+  "Dynamic Programming",
+  "Trees",
+  "Greedy",
+  "Two Pointers",
+  "Sorting",
+  "Recursion",
+  "Strings"
+];
+
 function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
   const [formData, setFormData] = useState({
     title: '',
@@ -186,13 +201,22 @@ function QuestionForm({ editingQuestion, onQuestionSaved, onCancel }) {
 
           <div className="form-group">
             <label>Topic *</label>
-            <input
-              type="text"
+            <select
               value={formData.topic}
               onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-              placeholder="e.g., Arrays, Strings, Trees"
               required
-            />
+            >
+              <option value="">Select a topic</option>
+              {AVAILABLE_TOPICS.map((topic) => (
+                <option key={topic} value={topic}>
+                  {topic}
+                </option>
+              ))}
+              {/* Show current topic if editing and it's not in the list (backward compatibility) */}
+              {editingQuestion && formData.topic && !AVAILABLE_TOPICS.includes(formData.topic) && (
+                <option value={formData.topic}>{formData.topic} (current)</option>
+              )}
+            </select>
           </div>
 
           <div className="form-group">
