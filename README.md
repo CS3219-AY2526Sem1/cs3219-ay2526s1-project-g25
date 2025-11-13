@@ -5,18 +5,18 @@ PeerPrep is a real-time collaborative coding platform that pairs users to solve 
 
 ## Architecture
 
-PeerPrep follows a **microservices architecture** with the following components:
+PeerPrep follows a **microservices architecture** with the following components. Links to all the currently deployed services are provided.
 
 ### Backend Services
-- **User Service** (Port 3001): Authentication, user management, and difficulty tracking
-- **Question Service** (Port 5050): Question bank management with admin CRUD operations
-- **Matching Service** (Port 4001): Peer matching algorithm using Redis queues
-- **Collaboration Service** (Port 3004): Real-time collaboration via WebSocket, code execution, and AI assistance
+- [**User Service**](https://user-service-201694769113.asia-southeast1.run.app): Authentication, user management, and difficulty tracking
+- [**Question Service**](https://question-service-201694769113.asia-southeast1.run.app/): Question bank management with admin CRUD operations
+- [**Matching Service**](https://matching-service-201694769113.asia-southeast1.run.app/): Peer matching algorithm using Redis queues
+- [**Collaboration Service**](https://collaboration-service-201694769113.asia-southeast1.run.app/): Real-time collaboration via WebSocket, code execution, and AI assistance
 
 ### Frontend Applications
-- **Login/Signup UI** (Port 3000): User authentication and dashboard
-- **Matching UI** (Port 3002): Topic selection and matching interface
-- **Collaboration UI** (Port 4000): Real-time code editor with collaboration features
+- [**Login/Signup UI**](https://peerprep-login-signup.vercel.app): User authentication and dashboard
+- [**Matching UI**](https://peerprep-matching.vercel.app/): Topic selection and matching interface
+- [**Collaboration UI**](https://peerprep-collab.vercel.app/): Real-time code editor with collaboration features
 
 ### Infrastructure
 - **PostgreSQL** (Supabase): User data and question bank storage
