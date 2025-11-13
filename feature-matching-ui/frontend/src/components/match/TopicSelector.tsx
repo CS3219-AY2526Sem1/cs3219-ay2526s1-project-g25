@@ -23,6 +23,7 @@ export default function TopicSelector({
     "Two Pointers",
     "Sorting",
     "Recursion",
+    "Strings"
   ]
 
   const [showLimitPopup, setShowLimitPopup] = useState(false)
