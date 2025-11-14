@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used for token verification endpoint
+ * Author review: I designed the inter-service authentication approach and reviewed all generated code
+ */
+
 import jwt from 'jsonwebtoken'
 import { supabase } from '../src/services/supabaseClient.js'
 

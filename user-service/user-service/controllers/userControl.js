@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used for user profile CRUD implementations
+ * Author review: I designed the security model and business logic and reviewed all generated code
+ */
+
 import { supabase } from '../src/services/supabaseClient.js'
 import { verifyPassword, generateSalt, hashPassword } from '../src/utils/hash.js'
 

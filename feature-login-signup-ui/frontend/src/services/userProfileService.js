@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used extensively for profile service with interceptors and auto token refresh
+ * Author review: I designed the refresh strategy and request queueing architecture and reviewed all generated code
+ */
+
 import axios from 'axios';
 import authService from './authService';
 import toast from 'react-hot-toast';

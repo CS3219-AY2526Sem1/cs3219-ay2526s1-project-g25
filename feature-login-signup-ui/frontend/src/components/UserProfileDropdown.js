@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used for dropdown logic and event handling
+ * Author review: I reviewed all functionality and generated code
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';

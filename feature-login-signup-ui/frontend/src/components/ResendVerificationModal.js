@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used extensively for modal implementation and form handling
+ * Author review: I designed the verification flow and reviewed all code
+ */
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import authService from '../services/authService';

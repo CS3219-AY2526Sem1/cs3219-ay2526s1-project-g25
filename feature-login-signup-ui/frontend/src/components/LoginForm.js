@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used extensively for form implementation and animations
+ * Author review: I designed the auth flow and reviewed all code
+ */
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import authService from '../services/authService';

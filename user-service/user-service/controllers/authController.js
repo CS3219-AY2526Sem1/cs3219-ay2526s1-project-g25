@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used for authentication endpoints and JWT token handling
+ * Author review: I designed the auth flow and security requirements and reviewed all generated code
+ */
+
 import { validationResult } from 'express-validator'
 import { supabase } from '../src/services/supabaseClient.js'
 import { generateSalt, hashPassword, verifyPassword } from '../src/utils/hash.js'

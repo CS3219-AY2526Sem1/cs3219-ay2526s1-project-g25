@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used for difficulty tracking endpoints and generation of documentation
+ * Author review: I designed the difficulty feature and data model and reviewed all generated code
+ */
+
 import { incrementDifficulty, getDifficultyCounts, resetDifficultyCounts, batchIncrementDifficulties } from '../src/services/difficultyService.js'
 
 /**

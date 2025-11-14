@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used extensively for profile page, tabbed interface, and form handling
+ * Author review: I designed the profile features and data model and reviewed all generated code
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';

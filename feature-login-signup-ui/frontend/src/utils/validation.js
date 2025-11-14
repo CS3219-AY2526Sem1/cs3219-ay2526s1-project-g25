@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used extensively for validation functions, generation of docstrings and regex patterns
+ * Author review: I defined validation requirements and security policies and reviewed all generated code
+ */
+
 // ============================================
 // FRONTEND VALIDATION UTILITIES
 // ============================================

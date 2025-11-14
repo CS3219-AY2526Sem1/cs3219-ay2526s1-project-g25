@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used for form structure and animations
+ * Author review: I designed the signup flow and security requirements and reviewed all generated code
+ */
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import authService from '../services/authService';

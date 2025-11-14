@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used for route definitions and API documentation
+ * Author review: I designed the difficulty tracking API and reviewed all generated code
+ */
+
 import express from 'express'
 import { requireAuth } from '../middleware/auth.js'
 import { 

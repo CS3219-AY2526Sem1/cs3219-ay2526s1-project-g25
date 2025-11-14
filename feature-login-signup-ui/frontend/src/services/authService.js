@@ -1,3 +1,10 @@
+/**
+ * AI Assistance Disclosure:
+ * Tool: GitHub Copilot, date: Sept-Oct 2025
+ * Scope: Used extensively for auth service implementation and token management
+ * Author review: I designed the token strategy and authentication flow and reviewed all generated code
+ */
+
 import axios from "axios";
 
 const API_URL =
