@@ -334,24 +334,6 @@ export default function CodePane({ question }: { question: any }) {
         }
     }
 
-    // async function handleRun() {
-    //     try {
-    //         console.log("[CodePane] Sending run:execute message via WebSocket");
-    //         setOutput("Running...");
-    //         setTests([]);
-
-    //         sendMsg({
-    //         type: "run:execute",
-    //         userId,
-    //         sessionId,
-    //         language,
-    //         });
-    //     } catch (e) {
-    //         console.error("[CodePane] handleRun failed:", e);
-    //         setOutput("Execution failed: " + String(e));
-    //     }
-    // }
-
     // Extract test cases from question data
     const extractTestCases = (question: any) => {
         if (!question?.test_cases) return [];
