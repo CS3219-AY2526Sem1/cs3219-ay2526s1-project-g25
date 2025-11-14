@@ -219,3 +219,18 @@ cs3219-ay2526s1-project-g25/
 
 - Backend: JavaScript (ES6+) with Express.js
 - Frontend: React (Login UI) and Next.js (Matching & Collaboration UIs)Is)
+
+## AI Use Summary
+
+**Tools Used:** ChatGPT and GitHub Copilot.
+
+**Prohibited Phases Avoided:** We confirm that AI was not used for requirements prioritization, system architecture, component design, or decision rationales. These were done solely by the team.
+
+**Uses:**
+- **Implementation Code:** Assisted in writing specific functions, classes, and unit tests *after* the architecture was finalized by the team.
+- **Debugging Assistance:** Used to explain error messages and suggest fixes.
+- **Refactoring & Documentation:** Suggested improvements to code structure and helped generate docstrings/comments.
+
+**Verification:** All AI-generated outputs have been reviewed, tested, and understood by the team members. We take full responsibility for the final code.
+
+**Usage Log:** A detailed log of our AI interactions is available in `/ai/usage-log.md`. (Note: Some initial interactions were not logged but are summarized here.)
