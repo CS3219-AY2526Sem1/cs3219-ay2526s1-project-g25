@@ -1,3 +1,10 @@
+/*
+ * AI-Assisted Notice:
+ * Portions of this file were developed with assistance from ChatGPT, an AI language model created by OpenAI.
+ * The AI provided suggestions and code snippets based on the prompts given by the author.
+ * All AI-generated code was reviewed, tested, and validated by the author.
+ */
+
 export function connectCollabSocket(sessionId: string, userId: string, token: string, onMessage: (msg: any) => void, context: string = "Generic") {
     let wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || "ws://localhost:3004/ws";
     if (!wsUrl.endsWith("/ws")) wsUrl = wsUrl.replace(/\/?$/, "/ws");

@@ -305,3 +305,118 @@ Copilot provided code completion for Express router setup. Suggested boilerplate
 I designed the API structure and endpoint organization. Used Copilot for code completion only. Organized routes by feature domain, implemented validation rules, verified mappings, and determined authentication requirements for each endpoint.
 
 ---
+
+## Entry 10
+
+### Date/Time:
+2025-09 to 2025-11
+
+### Tool:
+ChatGPT
+
+### Prompt/Command:
+"Show me how to implement a security flow where the Collaboration UI receives a temp token, redeems it with User Service, removes it from the URL, and stores the JWT in memory. The websockets /ws and /ws-yjs should then take this token, the sessionId and userId to initialise their connections"
+
+### Output Summary:
+AI produced code showing how to:
+- read sessionId and tempToken from query params
+- call User Service to redeem the tempToken
+- remove tempToken from the browser URL using window.history.replaceState
+- store the issued JWT in memory (React state)
+- pass the JWT to WebSocket construction functions
+
+### Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+### Author Notes:
+Used the generated code skeleton directly and filled in service URLs and my own state management. Tested by confirming tempToken disappears from URL and JWT is attached to WebSocket connections. Extensive debugging and modification to the generated code was required to get this feature to work after the initial prompt. However, the code provided by AI served as a good starting point for the implementation of this security workflow.
+
+---
+
+## Entry 11
+
+### Date/Time:
+2025-09 to 2025-11
+
+### Tool:
+ChatGPT
+
+### Prompt/Command:
+"When I end the session as a user, 'session ended' alerts show twice and I have to dismiss both alerts before being redirected back to the dashboard. Please help me debug where this issue is coming from and how I can fix it"
+
+### Output Summary:
+AI provided a patch that:
+- centralizes session-end alert logic
+- ensures only one component triggers the popup
+- ensures the other component ignores duplicate events
+- ensures cleanup only runs once per user
+
+### Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+### Author Notes:
+Employed AI help to debug the root cause of the issue. Applied a modified version of the recommended event-handling fix suggestions.
+
+---
+
+## Entry 12
+
+### Date/Time:
+2025-09 to 2025-11
+
+### Tool:
+ChatGPT
+
+### Prompt/Command:
+"I need to implement Yjs to our project's collaborative code editor using WebSocket. How can I go about doing this?"
+
+### Output Summary:
+AI generated:
+- high-level explanation of how Yjs can be implemented
+- a full Yjs WebSocket provider example
+- creation of ydoc
+- construction of wsUrl with sessionId, userId, token
+- call to new WebSocket(wsUrl) placed inside useEffect
+- setup for ws.onopen, ws.onclose, ws.onmessage
+
+### Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+### Author Notes:
+Extensive debugging and modification to the generated code was required to get this feature to work after the initial prompt. However, the code provided by AI served as a good starting point for the implementation of Yjs.
+
+---
+
+## Entry 13
+
+### Date/Time:
+2025-09 to 2025-11
+
+### Tool:
+ChatGPT
+
+### Prompt/Command:
+"Show me how I can use Judge0 to implement a code execution feature for our group's collaborative code editor"
+
+### Output Summary:
+AI generated:
+- Fetch request to RapidAPI Judge0 endpoint
+- JSON payload with source_code, language_id, stdin
+- handling the returned token/result
+- broadcasting the result to the session’s WebSocket room
+
+### Action Taken:
+- [ ] Accepted as-is
+- [X] Modified
+- [ ] Rejected
+
+### Author Notes:
+Used the structure directly and adjusted fields (languageId, result parsing). Extensive debugging and modification to the generated code was required to get this feature to work after the initial prompt. However, the code provided by AI served as a good skeleton for the implementation of Judge0.
+
+---

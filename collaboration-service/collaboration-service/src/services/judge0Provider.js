@@ -1,3 +1,10 @@
+/*
+ * AI-Assisted Notice:
+ * Portions of this file were developed with assistance from ChatGPT, an AI language model created by OpenAI.
+ * The AI provided suggestions and code snippets based on the prompts given by the author.
+ * All AI-generated code was reviewed, tested, and validated by the author.
+ */
+
 // If Node < 18: npm i node-fetch && uncomment:
 // import fetch from 'node-fetch';
 
